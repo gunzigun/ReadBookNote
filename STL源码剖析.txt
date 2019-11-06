@@ -1,0 +1,213 @@
+stl_config.h、stl_construct.h、stl_alloc.h、stl_uninitialized.h
+
+1.STL的六大组件
+①容器（containers）：各种数据结构，如vector，list，deque，set，map等
+②算法（algorithms）：各种常用算法，如sort，search，copy，erase等
+③迭代器（iterators）：泛型指针，将operator*，operator->，operator++，operator--等相关操作重载的class template
+④仿函数（functors）：行为类似函数，可作为算法的某种策略，重载了operator()的class或class template
+⑤配接器（adapters）：用来修饰容器（containers）的adapters，仿函数（functors）的adapters，迭代器（iterators）的adapters
+例如：queue和stack，虽然开始容器，其实是一种容器配接器，底层通过容器deque实现
+⑥配置器（allocators）：负责空间配置与管理，实现动态空间配置、空间管理、空间释放的class template
+
+算法->迭代器->容器：算法通过迭代器获取容器中的数据，进而对容器中的数据进行操作
+适配器->容器：在容器上适配器，就限制了容器的某些特性。例如用栈，只能后进先出，用队列，先进先出。
+容器->配置器->数据存储：容器可以通过是配置器来获取数据的储存空间
+算法->仿函数:算法依靠仿函数选择某种策略，例如默认小于比较或用户自定义比较等等。
+
+2.
+#if的使用说明
+#if的后面接的是表达式
+#if (MAX==10)||(MAX==20)
+	code...
+#endif
+它的作用是：如果(MAX==10)||(MAX==20)成立，那么编译器就会把其中的#if 与 #endif之间的代码编译进去（注意：是编译进去，不是执行！！）
+
+#if defined的使用
+#if后面接的是一个宏。
+#if defined (x)
+    ...code...
+#endif
+这个#if defined，它不管里面的“x”的逻辑是“真”还是“假”
+它只管这个程序的前面的宏定义里面有没有定义“x”这个宏
+如果定义了x这个宏，那么，编译器会编译中间的…code…否则不直接忽视中间的…code…代码。
+另外 #if defined(x)也可以取反，也就用 #if !defined(x)
+
+#ifdef的使用
+#ifdef的使用和#if defined()的用法一致
+#ifndef又和#if !defined()的用法一致
+
+3.
+class alloc {};
+template <class T, class Alloc = alloc>
+class vector 
+{
+public:
+    typedef T value_type;
+    typedef value_type* iterator;
+    template <class I>
+    void insert(iterator position, I first, I last)
+    {
+        cout << "insert()" << endl; 
+    }    
+};
+这么定义完后，便可以这般声明了 vector<int> x;  vector<int>::iterator ite;
+
+4.
+STL的迭代空间表示的是一个前闭后开区间 [first, last), 元素从first 开始，到 last-1 结束
+
+5.
+由于C语言中的函数指针，作为参数的不便性
+产生了仿函数functor的概念，需要对某个class进行operator()重载了
+
+6.
+new运算符 和 operator new()
+new运算符：指我们在C++里通常用到的运算符，比如A* a = new A;  对于new来说，有new和::new之分，前者位于std
+operator new()：指对new的重载形式，它是一个函数，并不是运算符。
+对于operator new来说，分为全局重载和类重载，全局重载是void* ::operator new(size_t size)
+在类中重载形式 void* A::operator new(size_t size)
+还要注意的是这里的operator new()完成的操作一般只是分配内存，
+事实上系统默认的全局::operator new(size_t size)也只是调用malloc分配内存，并且返回一个void*指针。
+而构造函数的调用(如果需要)是在new运算符中完成的
+
+7.
+new(p) T1(value);  // placement new, 空间再分配
+//在p指向的内存空间分配T1的对象，并调用T1(T2)的构造函数
+
+8.
+<memory> STL规定的配置器(allocator)定义于此
+	<stl_construct.h>
+	这里定义了全局函数construct()和destory()，负责对象的构造和析构，它们隶属于STL标准规范
+	<stl_alloc.h>
+	这里定义了一、二级配置器彼此合作。配置器名为alloc
+	<stl_uninitialized.h>
+	这里定义了一些全局函数，用来填充（fill）或复制（copy）大块内存数据，它们也都隶属于STL标准规范
+	un_initialized_copy()、un_initialized_fill()、un_initialized_fill_n()
+	这些函数虽不属于配置器范畴，但与对象初值设置有关，对于容器的大规模元素初值设置很有帮助，十分考虑效率
+	最差情况会调用<stl_construct.h>中的construct()
+	最佳情况会使用C标准函数memmove()直接进行内存数据移动
+	
+9.
+// 利用value_type()函数提取处迭代器所指向的类型，
+// 并用其类型产生一个临时对象，利用编译器的类型推导，
+// 获取迭代器指向类型，以便后面萃取其相关属性
+__destroy(first, last, value_type(first));
+
+10.
+// 利用__type_traits萃取处T类型的析构析构函数的否是trivial，
+// 并利用其has_trivial_destructor的定义类型，产生一个临时对象
+// 利用其进行重载
+// 不加typename的话，在模板实例化之前，编译器不知道__type_traits<T>::has_trivial_destructor是啥
+// 可能是静态数据成员、静态成员函数、嵌套类型，加上之后就知道了，是嵌套类型
+typedef typename __type_traits<T>::has_trivial_destructor trivial_destructor;
+return __destroy_aux(first, last, trivial_destructor());
+
+11.
+SGI对内存分配stl_alloc.h的设计原则
+向system heap要求空间
+考虑多线程（multi-threads）状态
+考虑内存不足时的应变措施
+考虑过多"小型区块"可能造成的内存碎片（fragment）问题
+
+12.
+SGI 双层级配置器 (未定义__USE_MALLOC)
+第一级配置器直接使用 malloc() 和 free()，模拟C++的set_new_handler()以处理内存不足的状况
+第二级配置器时情况不同做调整
+配置区超过128bytes时，视之为"足够大"，调用一级配置器
+配置区小于128bytes时，视之为"过小"，为了降低负担，采用复杂的memory pool整理方式
+# ifdef __USE_MALLOC
+...
+typedef __malloc_alloc_template<0> malloc_alloc;
+typedef malloc_alloc alloc;
+# else
+...
+// 令alloc为第二级配置器
+typedef __default_alloc_template<__NODE_ALLOCATOR_THREADS, 0> alloc;
+# endif /* __USE_MALLOC */
+
+13.
+alloc不接受任何template型别参数，但是会包装一个接口
+template<class T, class Alloc>
+class simple_alloc {
+public:
+	static T* allocate(size_t);
+	static T* allocate(void);
+	static void deallocate(T*, size_t);
+	static void deallocate(T*);
+}
+
+14.
+// 1.以下仿真C++的set_new_handler()，换句话说，你可以通过它指定你自己的out-of-memory handler
+// 2.void (*f)() 是函数 set_malloc_handler 的参数，void (*)() 是返回类型
+// 3.可以改写成
+// typedef void (*PF)();
+// static PF set_malloc_handler(PF f)
+//{
+//    PF old = __malloc_alloc_oom_handler;
+//    __malloc_alloc_oom_handler = f;
+//    return (old);
+//}
+static void (* set_malloc_handler( void (*f)() ))()
+{
+    void (* old)() = __malloc_alloc_oom_handler;
+    __malloc_alloc_oom_handler = f;
+    return(old);
+}
+设计、设定“内存不足处理例程”都是客户端，也即使用者的责任
+
+15.
+union obj
+{
+	union obj * free_list_link;
+	char client_data[1];
+}
+因为是union，
+从第一字段观之，obj可视为一个指针，指向相同形式的另一个obj
+从第二字段观之，obj可视为一个指针，指向实际区块
+char mem[100] = { 'c' };  
+char mem1[100] = { 'a' }; 
+union obj *p1 = (union obj *)mem;  // p1指向mem所在位置，并转换成union obj类型指针   
+union obj *p2 = (union obj *)mem1; // p2指向mem1所在位置，并转换成union obj类型指针
+p1->free_list_link = p2;
+//可以看到mem和client_data 两个指针值是一致的
+cout << "mem                  = " << (void *)mem << endl;
+cout << "p1->client_data      = " << (void *)p1->client_data << endl;
+//可以看到mem1和free_list_link 两个指针值是一致的
+cout << "mem1                 = " << (void *)mem1 << endl;
+cout << "p1->free_list_link   = " << (void *)p1->free_list_link << endl;
+	
+16.
+// ROUND_UP将bytes上调至8的倍数
+// bytes + __ALIGN - 1 之后，变成了一个比byte大的数，大于 ceil(bytes/__ALIGN)*__ALIGN
+// 这个数和  ~(__ALIGN - 1) 相与&之后，后三位被置0，被归整到，等于 ceil(bytes/__ALIGN)*__ALIGN
+static size_t ROUND_UP(size_t bytes) {
+    return (((bytes) + __ALIGN-1) & ~(__ALIGN - 1));
+}
+	
+17.
+volatile 影响编译器编译的结果,volatile指出 变量是随时可能发生变化的，与volatile变量有关的运算，不要进行编译优化，以免出错
+
+18.
+STL定义了五个全局函数，
+construct()、
+------------------------------------------------
+destory()、
+------------------------------------------------
+uninitialized_copy(InIter first, InIter last, OutIter result)、		//调用construct(&*(result+(i-first)),*i)
+将result开始的元素，填充为first-last的元素
+容器的全区间构造函数（range constructor）由以下两个步骤完成
+①配置内存区块，足以包含范围内的所有元素
+②使用uninitialized_copy()，在该内存区块上构造元素
+------------------------------------------------
+uninitialized_fill(OutIter first, OutIter last, const T& x)、  //调用construct(&*i,x)						
+将first-last的每一个元素，设置成x
+------------------------------------------------
+uninitialized_fill_n(OutIter first, Size n, const T& x)
+将first开始的n个元素，设置成x
+------------------------------------------------			//调用construct(&*i,x)
+作用于未初始化的空间上，对于容器的实现很有帮助
+uninitialized_copy()、uninitialized_fill()、uninitialized_fill_n()按照C++标准，具有"commit or rollback"语意
+
+19.
+
+	
+
