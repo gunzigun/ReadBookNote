@@ -208,13 +208,6 @@ uninitialized_fill_n(OutIter first, Size n, const T& x)
 uninitialized_copy()、uninitialized_fill()、uninitialized_fill_n()按照C++标准，具有"commit or rollback"语意
 
 19.
-fsfsfsfafafa
-
-
-fsdfassdfas
-fasfas
-
-fasfas
 
 	
 

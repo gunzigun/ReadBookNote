@@ -1,0 +1,69 @@
+C++基础知识
+①《C++ Primer 第5版》
+②《STL源码剖析》
+③《深度探索C++对象模型》：虚函数底层的实现机制
+④《Effective C++》
+
+数据结构
+①《大话数据结构》
+②《剑指offer 第二版》
+
+操作系统
+①《深入理解计算机系统 第3版》
+②《鸟哥的Linux私房菜 第4版》
+③《UNIX环境高级编程 第3版（APUE）》
+④《Linux/UNIX系统编程手册》
+⑤《深入理解Linux内核》：原理
+⑥《Linux内核设计与实现（LKD）》：实现
+内核详解：https://blog.csdn.net/qq_37375427/article/details/86634808?tdsourcetag=s_pcqq_aiomsg
+
+计算机网络
+①《计算机网络 第7版》
+②《TCP/IP详解 原书第2版》：卷1
+③《UNIX网络编程 第3版（UNP）》：卷1
+
+数据库
+①《数据库系统概念 第6版》
+②《mysql必知必会》
+③《Redis设计与实现》
+
+设计模式
+①《大话设计模式》：常用的23种设计模式
+
+项目
+《Linux多线程服务器端编程》：讲muduo网络库的
+《深入理解Nginx》：是一个高性能的HTTP和反向代理web服务器
+编写一个静态web服务器
+https://github.com/linyacool/WebServer
+
+常见服务器类型
+①负载均衡服务器
+Nginx 			一个高性能的HTTP和反向代理服务，也是一个IMAP/POP3/SMTP服务
+HAProxy 		一款应对客户端10000以上的同时连接的高性能的TCP和HTTP负载均衡器
+LVS 			使用Linux内核集群实现一个高性能、高可用的负载均衡服务器
+比较：https://www.cnblogs.com/zjoch/p/6409411.html
+②反向代理服务器
+Nginx 			一个高性能的HTTP和反向代理服务，也是一个IMAP/POP3/SMTP服务
+HAProxy 		一款应对客户端10000以上的同时连接的高性能的TCP和HTTP负载均衡器
+Squid 			一个高性能的代理缓存服务器，Squid支持FTP、gopher、HTTPS和HTTP协议
+Varnish 		一款高性能的开源HTTP加速器
+Apache TS 		一个高性能的、模块化的HTTP代理和缓存服务器
+比较：https://blog.csdn.net/zhu_tianwei/article/details/19396527
+③Web服务器
+Apache 			世界排名第一的web服务器
+Nginx 			一个高性能的HTTP和反向代理服务器
+Lighttpd 		一个具有非常低的内存开销，cpu占用率低，效能好，以及丰富的模块等特点的服务器
+https://www.cnblogs.com/tommyli/p/3945211.html
+④分布式缓存服务器
+Redis 		一个开源的使用ANSI C语言编写、支持网络、可基于内存亦可持久化的日志型、Key-Value数据库
+Memcached 一个高性能的分布式内存对象缓存系统,用于动态Web应用以减轻数据库负载
+Tair（阿里巴巴） 淘宝的一个开源项目,它是一个分布式的key/value结构数据的解决方案
+
+C++高频面试问题总结
+https://blog.csdn.net/xie810005152/article/details/91038878
+操作系统高频面试问题总结
+https://blog.csdn.net/xie810005152/article/details/91038915
+计算机网络高频面试问题总结
+https://blog.csdn.net/xie810005152/article/details/91038974
+
+ASIO

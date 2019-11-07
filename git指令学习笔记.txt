@@ -48,4 +48,14 @@ git pull --rebase origin[之前添加的远程主机] master
 git push origin[之前添加的远程主机] master
 
 -- 不删除物理文件，仅将该文件从缓存中删除
-git rm --cached “文件路径”，
+git rm --cached “文件路径”
+
+-- 删除某条提交记录，然后强制更新到库上
+git rebase -i 21a254a2b7^
+git push origin master -f
+
+-- 只下载github库上的某个目录
+git init
+git config core.sparseCheckout true
+echo "面试题1" >> .git/info/sparse-checkout
+git pull https://github.com/gunzigun/CodingInterviews.git master
