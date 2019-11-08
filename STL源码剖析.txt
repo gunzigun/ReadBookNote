@@ -1,4 +1,5 @@
-stl_config.h、stl_construct.h、stl_alloc.h、stl_uninitialized.h
+stl_config.h、stl_construct.h、stl_alloc.h、stl_uninitialized.h、stl_algobase.h、stl_iterator.h、type_traits.h
+
 
 1.STL的六大组件
 ①容器（containers）：各种数据结构，如vector，list，deque，set，map等
@@ -87,7 +88,7 @@ new(p) T1(value);  // placement new, 空间再分配
 	最佳情况会使用C标准函数memmove()直接进行内存数据移动
 	
 9.
-// 利用value_type()函数提取处迭代器所指向的类型，
+// 利用value_type()函数提取处迭代器所指向的类型，这个函数返回类型是T*  template<class T,...> 最后 return T*(0)
 // 并用其类型产生一个临时对象，利用编译器的类型推导，
 // 获取迭代器指向类型，以便后面萃取其相关属性
 __destroy(first, last, value_type(first));
@@ -208,6 +209,172 @@ uninitialized_fill_n(OutIter first, Size n, const T& x)
 uninitialized_copy()、uninitialized_fill()、uninitialized_fill_n()按照C++标准，具有"commit or rollback"语意
 
 19.
+STL的中心思想在于：将数据容器（containers）和算法（algorithms）分开，彼此独立设计，最后以一帖胶着剂将其撮合
+通过 class templates 和 function template 可分别达成目标，而迭代器（iterator）就是这一贴胶着剂
 
-	
+20.
+智能指针的用法，和原生指针一模一样
+void func()
+{
+	auto_ptr<string> ps(new string("jjhou"));
+	cout << *ps << endl;				//输出：jjhou
+	cout << ps->size() << endl;			//输出：5
+	// 离开前不需delete，auto_ptr会自动释放内存
+}
+
+21.
+template的参数推导机制，可以实现typeof()的函数功能
+但是只能推导出参数的型别，而不能推导出返回值的型别
+
+22.
+内嵌型别也可以实现，可以实现返回值的型别
+但是这么做，如果不是class type，那么就无法定义内嵌型别
+
+23.
+22.中的缺陷可以通过 template partial specialization（模板偏特化）来实现
+
+24.
+根据经验，最常用到的迭代器相应型别有5种：value_type，difference_type，pointer，reference，iterator_catagory
+25-28是这五个型别的例子
+value_type，是指迭代器所指向的型别
+difference_type，用来表示两个迭代器之间的距离，因此也可以用来表示容器的最大容量
+pointer，传回一个指针，指向迭代器所指之物
+reference，C++中函数要传回左值，都是以 by reference 的方式进行 
+iterator_catagory，迭代器的类别，5类
+①Input Iterator：只读
+②Output Iterator：只写
+③Forward Iterator：读写
+④Bidirectional Iterator：双向移动
+⑤Random Access Iterator：前4种，只供应一部分指针算术能力（前三种支持operator++，第四种再加上operator--）
+第5种，则涵盖所有指针算术能力，包括p+n，p-n，p[n]，p1-p2，p1<p2
+
+25.
+泛型
+template <class I>
+struct iterator_traits	//traits意为“特性”
+{
+	typedef typename I::value_type value_type;
+};
+原生指针，偏特化
+template <class T>
+struct iterator_traits<T*>	//迭代器是一个原生指针
+{
+	typedef T value_type;
+};
+const的原生指针，偏特化
+template <class T>
+struct iterator_traits<const T*>	//迭代器是一个const的原生指针
+{
+	typedef T value_type;			//萃取出来的型别应该是T，而不应该是const T
+};
+类型萃取器,使用方法
+template <class I>
+typename iterator_traits<I>::value_type // 这一整行是函数回返型别
+func(I iter)
+{
+	return *iter;
+}
+注意：每一个迭代器，都需要遵循上述traits的特点，自行以内嵌型别定义（nested typedef）的方式定义出相应型别
+
+26.
+template <class I>
+struct iterator_traits
+{
+	typedef typename I::difference_type difference_type;
+};
+template <class T>
+struct iterator_traits<T*>
+{
+	typedef ptrdiff_t difference_type;
+};
+template <class T>
+struct iterator_traits<const T*>
+{
+	typedef ptrdiff_t difference_type;
+};
+使用方法
+template <classI, class T>
+typename iterator_traits<I>::difference_type
+cout(I first, I last, const T& value)
+{
+	typename iterator_traits<I>::difference_type n = 0;
+	for ( ; first != last; ++first)
+	{
+		if (*first == value) ++n;
+	}
+	return n;
+}
+
+27.
+template <class I>
+struct iterator_traits
+{
+	typedef typename I::pointer pointer;
+	typedef typename I::reference reference;
+};
+template <class T>
+struct iterator_traits<T*>
+{
+	typedef T* pointer;
+	typeded T& reference;
+};
+template <class T>
+struct iterator_traits<const T*>
+{
+	typedef T* pointer;
+	typeded T& reference;
+};
+
+28.
+定义5个作为标记用的型别（tag types）
+struct input_iterator_tag {};
+struct output_iterator_tag {};
+struct forward_iterator_tag : public input_iterator_tag {};
+struct bidirectional_iterator_tag : public forward_iterator_tag {};
+struct random_access_iterator_tag : public bidirectional_iterator_tag {};
+这些classes 只作为标记使用，所以不需要任何成员，在函数中加些这写class参数，实现重载
+
+template <class I>
+struct iterator_traits
+{
+	typedef typename I::iterator_catagory iterator_catagory;
+};
+template <class T>
+struct iterator_traits<T*>
+{
+	typedef random_access_iterator_tag iterator_catagory;
+};
+template <class T>
+struct iterator_traits<const T*>
+{
+	typedef random_access_iterator_tag iterator_catagory;
+};
+使用方法
+template <class I>
+inline typename iterator_traits<I>::iterator_catagory
+iterator_catagory(const I&)
+{
+	typedef typename iterator_traits<I>::iterator_catagory category;
+	return category();
+}
+template <class InputIterator, class Distance>
+inline void advance(InputIterator& i, Distance n)
+{
+	__advance(i,n,iterator_catagory(i)) // 不同iterator category的重载函数
+}
+
+29.
+设计适当的型别，是迭代器的责任，设计适当的迭代器，是容器的责任
+唯容器本身，知道应该设计出怎么样迭代器来遍历自己，并执行迭代器的各种行为
+算法完全可以独立于容器和迭代器之外，只要设计时以迭代器为对外接口就行
+
+30.
+序列式容器：array，vector(heap(priority-queue))，list，slist，deque(stack，queue)
+关联式容器：RB-tree(set，map，multiset，multimap)，hashtable(hash_set，hash_map，hash_multiset，hash_multimap)
+
+
+
+
+
+
 
