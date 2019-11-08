@@ -1,4 +1,5 @@
-stl_config.h、stl_construct.h、stl_alloc.h、stl_uninitialized.h、stl_algobase.h、stl_iterator.h、type_traits.h
+stl_config.h、stl_construct.h、stl_alloc.h、stl_uninitialized.h、
+stl_algobase.h、stl_iterator.h、type_traits.h、stl_vector.h、
 
 
 1.STL的六大组件
@@ -372,8 +373,9 @@ inline void advance(InputIterator& i, Distance n)
 序列式容器：array，vector(heap(priority-queue))，list，slist，deque(stack，queue)
 关联式容器：RB-tree(set，map，multiset，multimap)，hashtable(hash_set，hash_map，hash_multiset，hash_multimap)
 
-
-
+31.
+对vector的任何操作，一旦引起空间重新配置，指向原vector的所有迭代器就都失效了。
+这是程序员容易犯的一个错误，务必小心。
 
 
 
