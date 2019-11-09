@@ -377,6 +377,10 @@ inline void advance(InputIterator& i, Distance n)
 对vector的任何操作，一旦引起空间重新配置，指向原vector的所有迭代器就都失效了。
 这是程序员容易犯的一个错误，务必小心。
 
+32.
+list有一个重要性质：插入操作（insert）和接合操作（splice）都不会造成原有的list迭代器失效。
+这在vector是不成立的，因为vector的插入操作可能造成记忆体重新配置，导致原有的迭代器全部失效。
 
+33.
 
 
