@@ -1,5 +1,7 @@
-stl_config.h、stl_construct.h、stl_alloc.h、stl_uninitialized.h、
-stl_algobase.h、stl_iterator.h、type_traits.h、stl_vector.h、
+stl_config.h、stl_construct.h、stl_alloc.h、stl_uninitialized.h、stl_algobase.h、
+stl_iterator.h、type_traits.h、
+stl_vector.h、stl_list.h、stl_deque.h、stl_stack.h、stl_queue.h、
+stl_heap.h、
 
 
 1.STL的六大组件
@@ -382,5 +384,35 @@ list有一个重要性质：插入操作（insert）和接合操作（splice）�
 这在vector是不成立的，因为vector的插入操作可能造成记忆体重新配置，导致原有的迭代器全部失效。
 
 33.
+deque和vector的最大差异，
+一在于deque允许于常数时间内对起头端进行元素的插入或移除操作
+二在于deque没有所谓容量（capacity）观念，因为它是动态的分段连续空间组合而成
 
+34.
+deque的最大任务，便是在这些分段的定量连续空间上，维护其整体连续的假象（又迭代器的operator++和operator--实现）
+并提供了随机存取的接口，避开了“重新配置、复制、释放”的轮回，代价这是复杂的迭代器架构
 
+35.
+deque维护一个指向map（中控区）的指针，以及，
+start、finish两个迭代器，分别指向第一个缓冲区的第一个元素，最后一个缓冲区的最后一个元素（的下一个位置）
+protected:                      // Data members
+  iterator start;               // 表现第一个节点
+  iterator finish;              // 表现最后一个节点
+  map_pointer map;              // 指向map，map是块连续空间，其内的每个元素
+                                // 都是一个指针（称为节点），指向一块缓冲区
+  size_type map_size;           // map内可容纳多少指针
+  
+36.
+stack所有的元素的进出都必须符合“先进后出”，所以不能提供走访功能，不能提供迭代器
+queue所有的元素的进出都必须符合“先进先出”，所以不能提供走访功能，不能提供迭代器
+heap所有的元素必须遵循完全二叉树规则，所以不能提供走访功能，不能提供迭代器
+
+37.
+隐式表达法：
+完全二叉树没有任何节点漏洞，带来一个极大的好处，可以利用array来存储所有节点。
+将#0元素保留（设为无限大或者无限小）
+那么第i个节点的左孩子是2i，右孩子是2i+1，父节点在i/2处
+
+38.
+对于大根堆，每次pop_heap，将最大值，放到底部，
+每次缩减一个范围，那么最终，这个隐式表达的大根堆，就排好了序
