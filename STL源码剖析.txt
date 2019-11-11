@@ -1,7 +1,6 @@
 stl_config.h、stl_construct.h、stl_alloc.h、stl_uninitialized.h、stl_algobase.h、
 stl_iterator.h、type_traits.h、
-stl_vector.h、stl_list.h、stl_deque.h、stl_stack.h、stl_queue.h、
-stl_heap.h、
+stl_vector.h、stl_list.h、stl_deque.h、stl_stack.h、stl_queue.h、stl_heap.h、stl_slist.h
 
 
 1.STL的六大组件
@@ -406,6 +405,7 @@ protected:                      // Data members
 stack所有的元素的进出都必须符合“先进后出”，所以不能提供走访功能，不能提供迭代器
 queue所有的元素的进出都必须符合“先进先出”，所以不能提供走访功能，不能提供迭代器
 heap所有的元素必须遵循完全二叉树规则，所以不能提供走访功能，不能提供迭代器
+priority_queue所有的元素只有最顶端的元素（权值最高者），才有机会被外界取用，所以不能提供走访功能，不能提供迭代器
 
 37.
 隐式表达法：
@@ -416,3 +416,22 @@ heap所有的元素必须遵循完全二叉树规则，所以不能提供走访�
 38.
 对于大根堆，每次pop_heap，将最大值，放到底部，
 每次缩减一个范围，那么最终，这个隐式表达的大根堆，就排好了序
+
+39.
+单向链表slist，没有任何方便的办法可以回头定出前面一个位置，因此它必须从头找起
+换句话说，除了slist起点处附近的区域之外，在其它位置上采用insert或erase操作函数，都属不智之举
+为此，slist特别提供了insert_after()和erase_after()供灵活运用
+
+40.
+基于同样的效率考虑，slist不提供push_back()，只提供push_front()，因此slist的元素次序会和元素插入进来的次序相反
+
+
+
+
+
+
+
+
+
+
+
