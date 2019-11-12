@@ -1,7 +1,7 @@
 stl_config.h、stl_construct.h、stl_alloc.h、stl_uninitialized.h、stl_algobase.h、
 stl_iterator.h、type_traits.h、
 stl_vector.h、stl_list.h、stl_deque.h、stl_stack.h、stl_queue.h、stl_heap.h、stl_slist.h
-
+stl_tree.h、
 
 1.STL的六大组件
 ①容器（containers）：各种数据结构，如vector，list，deque，set，map等
@@ -425,13 +425,38 @@ priority_queue所有的元素只有最顶端的元素（权值最高者），才
 40.
 基于同样的效率考虑，slist不提供push_back()，只提供push_front()，因此slist的元素次序会和元素插入进来的次序相反
 
+41.
+AVL(Adelson-Velsky-Landis)Tree 平衡二叉搜索树
+RB(Red-Black)Tree			   红黑树
+AA(Arne-Andersson)Tree		   红黑树的变种
 
+42.
+AVL树的平衡调整
+只要调整“插入点至根节点”路径上，平衡状态被破坏之各节点中最深的那一个，便可使整棵数重新获得平衡
+假设该最深节点为X，分为4种情况
+①插入点位于X左节点的左子树
+②插入点位于X右节点的右子树			①②为外侧插入，单旋调整		
+③插入点位于X左节点的右子树
+④插入点位于X右节点的左子树			③④为内侧插入，双旋调整
 
+43.
+红黑树规则
+①每个节点不是红色就是黑色
+②根节点为黑色
+③如果节点为红色，其子节点必须为黑色
+④任一节点至NULL(树尾端)的任何路径，所含之黑节点数必须相同
+根据规则④，新增节点必须为红，根据规则③，新增节点之父节点必须为黑
+注：新节点为X，父节点为P，祖父节点为G、伯父节点为S、曾祖父节点GG
+status1：S为黑且X为外侧插入，先对P,G做一次单旋，再更改P,G颜色
+status2：S为黑且X为内侧插入，先对P,X做一次单旋，再更改G,X颜色，再将结果对G做一次单旋
+status3：S为红且X为外侧插入，先对P,G做一次单旋，再改变X颜色，此时，若GG为黑，则搞定，若GG为红，见status4
+status4：重复status3，持续网上做，知道不再有父子连续为红的情况
+status4：特殊处理：（1）重开始节点到新增点X的路径上，某节点两个节点都为红色，就把该节点改为红色，两个节点改成黑色
+				   （2）如果还有两个父子同红，按着status1，做一次单旋
+				   （3）要么直接插入，要么插入后做一次单旋
 
-
-
-
-
-
+44.
+树状结构的各种操作，最需要注意的就是边界情况的发生，也就是走到根节点时要有特殊的处理
+为了简化处理，SGI STL特别为根节点再设计一个父节点，名为header来解决
 
 
