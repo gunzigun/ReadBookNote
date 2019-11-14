@@ -1,7 +1,8 @@
-stl_config.h、stl_construct.h、stl_alloc.h、stl_uninitialized.h、stl_algobase.h、
+stl_config.h、stl_construct.h、stl_alloc.h、stl_uninitialized.h、stl_algobase.h、stl_function.h、
 stl_iterator.h、type_traits.h、
-stl_vector.h、stl_list.h、stl_deque.h、stl_stack.h、stl_queue.h、stl_heap.h、stl_slist.h
-stl_tree.h、
+stl_vector.h、stl_list.h、stl_deque.h、stl_stack.h、stl_queue.h、stl_heap.h、stl_slist.h、
+stl_tree.h、stl_set.h、stl_pair.h、stl_map.h、stl_multiset.h、stl_multimap.h
+stl_hashtable.h、stl_hash_fun.h、stl_hash_set.h、stl_hash_map.h
 
 1.STL的六大组件
 ①容器（containers）：各种数据结构，如vector，list，deque，set，map等
@@ -458,5 +459,11 @@ status4：特殊处理：（1）重开始节点到新增点X的路径上，某�
 44.
 树状结构的各种操作，最需要注意的就是边界情况的发生，也就是走到根节点时要有特殊的处理
 为了简化处理，SGI STL特别为根节点再设计一个父节点，名为header来解决
+
+45.
+
+
+
+
 
 
