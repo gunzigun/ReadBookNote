@@ -1,8 +1,11 @@
-stl_config.h、stl_construct.h、stl_alloc.h、stl_uninitialized.h、stl_algobase.h、stl_function.h、
+stl_config.h、stl_construct.h、stl_alloc.h、stl_uninitialized.h、stl_function.h、
 stl_iterator.h、type_traits.h、
 stl_vector.h、stl_list.h、stl_deque.h、stl_stack.h、stl_queue.h、stl_heap.h、stl_slist.h、
 stl_tree.h、stl_set.h、stl_pair.h、stl_map.h、stl_multiset.h、stl_multimap.h
 stl_hashtable.h、stl_hash_fun.h、stl_hash_set.h、stl_hash_map.h
+stl_algobase.h、stl_algo.h、
+stl_numeric.h、
+
 
 1.STL的六大组件
 ①容器（containers）：各种数据结构，如vector，list，deque，set，map等
@@ -461,6 +464,16 @@ status4：特殊处理：（1）重开始节点到新增点X的路径上，某�
 为了简化处理，SGI STL特别为根节点再设计一个父节点，名为header来解决
 
 45.
+算法分为
+（1）质变算法 mutating algorithms -- 会改变操作对象之值
+如：拷贝（copy）、互换（swap）、替换（replace）、填写（fill）、删除（remove）、排列组合（permutation）、
+分割（partition）、随机重排（random shuffling）、排序（sort）等
+注意：一般提供XXX()、XXX_copy()两个版本，第二个版本会拷贝一份副本，然后在副本上修改，并返回该副本
+（2）非质变算法 nonmutating algorithms -- 不改变操作对象之值
+如：查找（find）、匹配（search）、计数（count）、巡防（for_each）、比较（equal、mismatch）、寻找极值（max、min）等
+
+46.
+adjacent_difference和partial_sum互为逆运算
 
 
 
