@@ -491,7 +491,6 @@ copy()
 			T has non-trivial operator= __copy_d()
 	copy()的特化版本（1），调用 (const char*, const char*)			   memmove()
 	copy()的特化版本（2），调用 (const wchar_t*, const wchar_t*)       memmove()
-
-
+copy_backward()	的细节和copy很像不过拷贝反向是反的
 
 
