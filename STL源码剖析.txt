@@ -475,7 +475,22 @@ status4：特殊处理：（1）重开始节点到新增点X的路径上，某�
 46.
 adjacent_difference和partial_sum互为逆运算
 
-
+47.
+copy函数的使用陷阱
+copy()
+	copy()的完全泛化版本，调用 <InputIterator, InputIterator> __copy_dispatch()
+		// 以迭代器等同于否，决定循环是否继续，速度慢
+		__copy_dispatch()的完全泛化版本，调用 <InputIterator, InputIterator> __copy()  
+			// 以n（原串长度）决定循环执行次数，速度快
+			<RandomAccessIterator, RandomAccessIterator>  __copy_d()
+		__copy_dispatch()的特化版本（1），调用 <T*, T*> 				   __copy_t()	
+			T has trivial operator= memmove()
+			T has non-trivial operator= __copy_d()
+		__copy_dispatch()的特化版本（2），调用 <const T*, T*> 			   __copy_t()
+			T has trivial operator= memmove()
+			T has non-trivial operator= __copy_d()
+	copy()的特化版本（1），调用 (const char*, const char*)			   memmove()
+	copy()的特化版本（2），调用 (const wchar_t*, const wchar_t*)       memmove()
 
 
 
