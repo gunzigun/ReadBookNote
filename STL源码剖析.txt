@@ -493,4 +493,39 @@ copy()
 	copy()的特化版本（2），调用 (const wchar_t*, const wchar_t*)       memmove()
 copy_backward()	的细节和copy很像不过拷贝反向是反的
 
+48.
+// 6 8 10 3 4 5 6 6 6 7 8
+//删除（但不删除）元素6，尾端可能有残余数据（可另以容器之erase函数去除之）
+remove(iv.begin(),iv.end(),6);        // 6 [8 10 3 4 5 6 | 6 6 7 8] -> [8 10 3 4 5 7 8] (6 6 7 8)
+for_each(iv.begin(),iv.end(),display<int>());  
+cout<<endl; // 8 10 3 4 5 7 8 6 6 7 8 (最后四个是残留数据)   
+       
+vector<int> iv3(12);//重新申请空间  
+//遍历所有元素，把不等于6的元素，拷贝到iv3
+remove_copy(iv.begin(),iv.end(),iv3.begin(),6);  
+for_each(iv3.begin(),iv3.end(),display<int>());   
+cout<<endl; //8 10 3 4 5 7 8 7 8 (0 0 0)（最后三个是残留元素）   
+    
+//将小于6的元素 "删除" iv 此时为 8 10 3 4 5 7 8 6 6 7 8  =  8 10 (3 4 5) [7 8 6 | 6 7 8]
+remove_if(iv.begin(),iv.end(),bind2nd(less<int>,6));   // 8 10 [7 8 6 6 7 8] (6 7 8) (最后三个是残留元素) 
+for_each(iv.begin(),iv.end(),display<int>());    
+cout<<endl;  
+    
+//将小于7的元素 "删除" ,此时iv： 8 10 7 8 6 6 7 8 6 7 8 -> [8 10 7 8 7 8 7 8]
+// iv3: [8 10 3 4 5 7 8 7] (8 0 0 0) 
+remove_copy_if(iv.begin(),iv.end(),iv3.begin(),bind2nd(less<int>,7));  
+for_each(iv3.begin(),iv3.end(),display<int>());   //  [8 10 7 8 7 8 7 8] (8 0 0 0) (最后4个是残余数据)
+cout<<endl;
 
+49.
+算法查找的是“最后一次出现地点”，如果我们有能力逆向查找，题目就变成了“首次出现地点”
+因此SGI将算法设计为双层架构，一般称呼此种上层函数为dispatch function（分派函数、派送函数）
+
+50.
+find_first_of的陷阱
+[first1,last1) = {1,2,4,5,6}
+[first2,last2) = {5,6,8}
+find_first_of([first1,last1), [first2,last2))是可以查找成功的
+因为，是查找5或6或8，在第一个序列中第一次出现的位置，而不是整个[5,6,8)出现的位置
+
+51.
