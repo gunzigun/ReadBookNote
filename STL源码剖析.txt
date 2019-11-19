@@ -585,5 +585,25 @@ list属于BidirectionalIterators，slist属于ForwardIterators都不适合sort�
 在细分为小块时，使用插入排序
 以及，数据基本排序时，使用插入排序，会有较好的效果
 
+56.
+仿函数的使用方法
+greater<int> ig;
+cout << ig(4,6);					// false
+cout << greater<int>()(6,4);		// true
+
+57.
+仿函数
+根据操作数（operand）个数划分：一元仿函数、二元仿函数
+根据功能划分：
+算术运算仿函数（Arithmetic）: plus<T>、minus<T>、multiplies<T>、divides<T>、取模modulus<T>、取反negate<T>
+关系运算仿函数（Rational）: equal_to<T>、not_equal_to<T>、greater<T>、greater_equal<T>、less<T>、less_equal<T>
+逻辑运算（Logical）:logical_and<T>、logical_or<T>、logical_not<T>
+想要使用STL的仿函数需要#include <functional>
+
+58.
+其它仿函数
+证同函数：identity
+选择函数：select1st、select2nd
+投射函数：project1st、project2nd
 
 
