@@ -546,4 +546,44 @@ m   n   余
 2 % 1 = 0
 1 % 0 = 停止，返回m 
 
+52.
+int ia[] = {12,17,20,22,23,30,33,40};  
+vector<int> iv(ia,ia+sizeof(ia)/sizeof(int));  
+// 在不破坏排序状态的原则下，可插入value的第一个位置    
+cout << *lower_bound(iv.begin(),iv.end(), 22) << endl; //22
+// 在不破坏排序状态的原则下，可插入value的最后一个位置           
+cout << *upper_bound(iv.begin(),iv.end(), 22) << endl; //23 
+
+53.
+如何打乱一个序列
+template <class RandomAccessIterator, class RandomNumberGenerator>
+void random_shuffle(RandomAccessIterator first, RandomAccessIterator last,
+                    RandomNumberGenerator& rand) {
+  if (first == last) return;
+  for (RandomAccessIterator i = first + 1; i != last; ++i)
+    iter_swap(i, first + rand((i - first) + 1));			// rand(300) 产生0-299的一个随机数
+}
+随机数是伪随机
+srand(1);
+int i;
+for (i = 0; i < 10; i++)
+   printf("%d, ", rand()%11); 	// 执行多少都一样，不会变
+srand(time(NULL));
+int i;
+for (i = 0; i < 10; i++)
+   printf("%d, ", rand()%11);	// time(NULL)时刻在变，会不断变化
+   
+54.
+序列式容器中，vector和deque的迭代器属于RandomAccessIterators。适合sort算法
+list属于BidirectionalIterators，slist属于ForwardIterators都不适合sort算法
+
+55.
+①在快速排序时，任何位置都可以作为枢轴。
+为了避免“元素当初输入是不够随机”所带来的恶化效应
+最理想的方式，median-of-three法找枢轴，头、尾、中三位置元素值的中间值作为枢轴。
+②在数据很大块时，快速排序
+在细分为小块时，使用插入排序
+以及，数据基本排序时，使用插入排序，会有较好的效果
+
+
 
