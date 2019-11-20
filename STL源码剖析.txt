@@ -606,4 +606,39 @@ cout << greater<int>()(6,4);		// true
 选择函数：select1st、select2nd
 投射函数：project1st、project2nd
 
+59.
+迭代器的配接器（1）
+back_inserter(Container& x) 返回 back_insert_iterator<Container>(x);
+front_inserter(Container& x) 返回 front_insert_iterator<Container>(x);
+inserter(Container& x, Iterator i) 返回 insert_iterator<Container>(x, Container::iterator(i));
+insert iterators的前进、后退、取值、成员取用等操作都被禁止
+
+60.
+迭代器的配接器（2）
+reverse_iterator<int> reite;					// 逆向迭代器
+ostream_iterator<int> outite(cout, " ");		// 输出迭代器
+istream_iterator<int> inite(cin);				// 输入迭代器
+
+61.
+仿函数的配接器
+系结(bind)、否定(negate)、组合（compose）
+not1(bind2nd(less<int>(),12))   形成了不小于12的一个仿函数类
+compose1(bind2nd(multiplies<int>(),3), bind2nd(plus<int>(),2))		// 形成了单操作数的仿函数(v+2)*3
+
+62.
+函数指针的配接器 ptr_fun(print)  
+成员函数的配接器 mem_fun_ref(&Int::print1)
+ptr_fun，mem_fun_ref都是函数，返回仿函数类
+
+63.
+begin() 				 end()
+  |->                     |->
+   [] [] [] [] [] [] [] []
+<-|                     <-|
+rend()	               rbegin()							
+逆转迭代器之后，虽然指向位置不变，但是取值方向确改变了，这点特别需要注意
+
+64.
+重载operator->的一种方式
+T* operator->() const { return &(operator*()); }
 
