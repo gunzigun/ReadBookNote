@@ -642,3 +642,9 @@ rend()	               rbegin()
 重载operator->的一种方式
 T* operator->() const { return &(operator*()); }
 
+65.
+虽然多态（polymorphism）可以对pointer或reference起作用，但很可惜的是，
+STL容器只支持“实值语意”（value semantic），不支持“引用语意”（reference semanctics）
+所以 vector<Shape&> V;    无法编译通过
+
+
