@@ -128,3 +128,11 @@ sudo apt install 软件包
 sudo apt remove 软件名
 sudo apt update
 
+1.
+  d     rwx      r-x          r-x           2      xuguanglong   xuguanglong     4.0K    11月 22 11:34     桌面
+目录 属主权限 组成员权限  其它成员权限  引用计数    文件属主   文件属主所在组  文件大小   上次修改时间    文件名
+
+2.
+添加环境变量  export MYVAR = 'Hello  world'
+显示环境变量  echo $MYVAR
+
