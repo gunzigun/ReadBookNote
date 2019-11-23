@@ -46,5 +46,18 @@ int main(int argc, char *argv[])
 ⑦共享内存，允许两个及以上的进程共享一块内存。当某进程改变了共享内存的内容时，其他所有进程会立即了解到变化
 
 6.
+sudo apt-get install ros-kinetic-librealsense 
+E: 无法获得锁 /var/lib/dpkg/lock-frontend - open (11: 资源暂时不可用)
+E: Unable to acquire the dpkg frontend lock (/var/lib/dpkg/lock-frontend), is another process using it?
+sudo rm /var/cache/apt/archives/lock 
+sudo rm /var/lib/dpkg/lock
 
-
+7.
+下载: src.3e.tar.gz（http://www.apuebook.com）
+解压: tar xvf src.3e.tar.gz
+安装相应库: sudo apt-get install libbsd-dev
+进入到apue.3e目录，执行: make
+cp ./include/apue.h /usr/include/
+cp ./lib/libapue.a /usr/local/lib/
+执行make
+编译时链接到相应库: gcc -o 1-1 1-1.c -l apue
