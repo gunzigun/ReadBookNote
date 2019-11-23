@@ -61,3 +61,28 @@ cp ./include/apue.h /usr/include/
 cp ./lib/libapue.a /usr/local/lib/
 执行make
 编译时链接到相应库: gcc -o 1-1 1-1.c -l apue
+
+8.
+所有shell都为其打开3个文件描述符，即标准输入（standard input）、标准输出（standard output）、标准错误（standard error）
+比如：ls > file.list 可以吧ls的内容重定向到file.list文件中
+,/mycat > data			把输出重定向到data
+文件结束符：Ctrl+D
+./mycat < date > fuck	把输入重定向到data，同时把输出重定向到fuck
+
+9.
+3个用于进程控制的主要函数：fork、exec（execlp）、waitpid
+strerror(EACCES);			基于EACCES产生一条错误信息
+erron = ENOENT;
+perroe(argv[0]);			基于当前的erron产生错误信息
+
+10.
+键盘上产生信号的两种方法
+中断键(interrupt key)：Delete或Ctrl+C
+退出键(quit key)：Ctrl+\
+
+11.
+日历时间（time_t）：自1970.1.1 00:00:00的时间
+进程时间（clock_t）：
+（1）时钟时间：进程运行的时间总量
+（2）用户CPU时间：执行用户指令所用的时间
+（3）系统CPU时间：为该进程执行内核程序所经历的时间
