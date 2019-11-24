@@ -70,6 +70,7 @@ cp ./lib/libapue.a /usr/local/lib/
 ./mycat < date > fuck	把输入重定向到data，同时把输出重定向到fuck
 
 9.
+#include <sys/wait.h>
 3个用于进程控制的主要函数：fork、exec（execlp）、waitpid
 strerror(EACCES);			基于EACCES产生一条错误信息
 erron = ENOENT;
@@ -86,3 +87,13 @@ perroe(argv[0]);			基于当前的erron产生错误信息
 （1）时钟时间：进程运行的时间总量
 （2）用户CPU时间：执行用户指令所用的时间
 （3）系统CPU时间：为该进程执行内核程序所经历的时间
+
+12.
+#include <unistd.h>
+long sysconf(int name);
+long pathconf(const char *pathname, int name);
+long fpathconf(int fd, int name);
+（1）与文件或目录无关的运行时选项用sysconf函数来判断
+（2）与文件或目录有关的运行时选项通过调用pathconf或fpathconf函数来判断
+
+
