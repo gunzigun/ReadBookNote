@@ -63,7 +63,8 @@ cp ./lib/libapue.a /usr/local/lib/
 编译时链接到相应库: gcc -o 1-1 1-1.c -l apue
 
 8.
-所有shell都为其打开3个文件描述符，即标准输入（standard input）、标准输出（standard output）、标准错误（standard error）
+所有shell都为其打开3个文件描述符
+①标准输入（0，standard input）、②标准输出（1，standard output）、③标准错误（2，standard error）
 比如：ls > file.list 可以吧ls的内容重定向到file.list文件中
 ,/mycat > data			把输出重定向到data
 文件结束符：Ctrl+D
@@ -95,5 +96,47 @@ long pathconf(const char *pathname, int name);
 long fpathconf(int fd, int name);
 （1）与文件或目录无关的运行时选项用sysconf函数来判断
 （2）与文件或目录有关的运行时选项通过调用pathconf或fpathconf函数来判断
+
+13.
+#include <fcntl.h>
+(1)
+int open(const char *path, int oflag, ... /* mode_t mode */);
+int openat(int fd, const chat *path, int oflag, ... /* mode_t mode */);
+oflag：
+只指定一个：O_RDONLY（只读打开）O_WRONLY（只写打开）O_RDWR（读写打开）O_EXEC（只执行打开）O_SEARCH（只搜索打开，用于目录）
+O_APPEND、O_CREAT、O_DIRECTORY、O_SYNC等，详见头文件
+两个函数返回值相同，若成功，返回文件描述符，若出错返回-1
+(2)
+int creat(const char *path, mode_t mode);
+若成功，返回为只写打开的文件描述符，若出错，返回-1
+等价于open(path, O_WRONLY|OCREAT|O_WRONLY|OCREAT|O_TRUNC, mode);
+#include <unistd.h>
+(3)
+int close(int fd);
+一个进程终止时，内核自动关闭它所有的打开文件。很多程序都利用了这一功能，而不显式地用close关闭打开文件。
+(4)
+除非以O_APPEND打开，否则偏移量为0
+off_t lseek(int fd, off_t offset, int whence)
+若成功，返回新的文件偏移量，若出错，返回-1
+如果文件描述符指向一个管道、FIFO或网络套接字，返回-1，并将erron设置为ESPIPIE
+whence为SEEK_SET，开始处加offset，为SEEK_CUR，当前位置加offset(可正负)，为SEEK_END，结尾处加offset(可正负)
+(5)
+ssize_t read(int fd, void *buf, size_t nbytes);
+返回值：读到的字节数，若已到文件尾，返回0，如出错返回-1
+(6)
+ssize_t write(int fd, const void *buf, size_t nbytes);
+返回值：若成功，返回已写的字节数，若出错，返回-1
+(5)(6)对应有原子操作版本,先lseek，再read，write，只不过绑定为原子操作
+ssize_t pread(int fd, void *buf, size_t nbytes, off_t offset);
+ssize_t pwrite(int fd, const void *buf, size_t nbytes, off_t offset);
+(7)
+int dup(int fd);						// 新的描述符，一定是可用的最小值  
+等同：fcntl(fd,F_DUPFD,0)
+int dup2(int fd, int fd2);				// 如果fd2已经打开，则先关闭掉，然后重新指向
+等同：close(fd2);  fcntl(fd,F_DUPFD,fd2);   // 这样就不是原子操作啦
+两个函数的返回值：若成功，返回新的文件描述符，若出错，返回-1
+注意：新的描述符，跟原来的描述符，指向同一个“文件表项”
+
+
 
 
