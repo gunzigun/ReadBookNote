@@ -69,6 +69,8 @@ cp ./lib/libapue.a /usr/local/lib/
 ,/mycat > data			把输出重定向到data
 文件结束符：Ctrl+D
 ./mycat < date > fuck	把输入重定向到data，同时把输出重定向到fuck
+5<>temp.foo 表示在文件描述符5上打开文件temp.foo以供读、写
+2>>temp.foo 表示在文件描述符2上打开文件temp.foo以供追加、写
 
 9.
 #include <sys/wait.h>
@@ -132,11 +134,26 @@ ssize_t pwrite(int fd, const void *buf, size_t nbytes, off_t offset);
 (7)
 int dup(int fd);						// 新的描述符，一定是可用的最小值  
 等同：fcntl(fd,F_DUPFD,0)
+dup(0)等同：open("/dev/fd/0", mode)
 int dup2(int fd, int fd2);				// 如果fd2已经打开，则先关闭掉，然后重新指向
 等同：close(fd2);  fcntl(fd,F_DUPFD,fd2);   // 这样就不是原子操作啦
 两个函数的返回值：若成功，返回新的文件描述符，若出错，返回-1
 注意：新的描述符，跟原来的描述符，指向同一个“文件表项”
-
+(8)
+void sync(void);	linux系统的守护进程update，周期性（一般是30秒）调用这个函数，来冲洗内核的块缓冲区
+int fsync(int fd);		只对指定的一个文件生效，用于数据库这样的应用程序，需要确保修改过的块立刻写到磁盘上
+int fdatasync(int fd);		类似于fsync，但是只影响文件的数据部分，fsync，还会更新文件属性
+#include <fcntl.h>
+(9)
+int fcntl(int fd, int cmd, ... /* int arg */);    出错返回-1
+cmd = F_DUPFD/F_DUPFD_CLOEXEC     复制一个已有的描述符
+cmd = F_GETFD/F_SETFD			  获取/设置文件描述符标志(FD_CLOEXEC)
+cmd = F_GETFL/F_SETFL			  获取/设置文件状态标志(O_APPEND、O_NONBLOCK、O_*SYNC可以更改，其它不行)
+cmd = F_GETOWN/F_SETOWN			  获取/设置异步I/O所有权
+cmd = F_GETLK/F_SETLK/F_SETLKW	  获取/设置记录锁
+其中：当前只定义了一个文件描述符标志FD_CLOEXEC
+0： exec时不关闭已经打开的文件描述符
+1： exec时关闭已经打开的文件描述符
 
 
 
