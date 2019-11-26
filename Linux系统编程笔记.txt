@@ -99,7 +99,7 @@ long fpathconf(int fd, int name);
 （1）与文件或目录无关的运行时选项用sysconf函数来判断
 （2）与文件或目录有关的运行时选项通过调用pathconf或fpathconf函数来判断
 
-13.
+13.文件I/O
 #include <fcntl.h>
 (1)
 int open(const char *path, int oflag, ... /* mode_t mode */);
@@ -154,6 +154,77 @@ cmd = F_GETLK/F_SETLK/F_SETLKW	  获取/设置记录锁
 其中：当前只定义了一个文件描述符标志FD_CLOEXEC
 0： exec时不关闭已经打开的文件描述符
 1： exec时关闭已经打开的文件描述符
+
+14.文件和目录
+(1)查看文件结构
+#include <sys/stat.h>
+int stat(const char *restrict pathname, struct stat *restrict buf);
+int fstat(int fd, struct stat *buf);
+int fstatat(int fd, const char *restrict pathname, struct stat *restrict buf, int flag);
+用于返回文件有关的信息结构
+int lstat(const char *restrict pathname, struct stat *restrict buf);
+这大体相同，不过当文件名是一个“符号链接”时，返回的是符号链接有关的信息
+mode_t umask(mode_t cmask);		//返回原来的屏蔽字（用户、组、读、写、执行这些）
+int chmod(const char *pathname, mode_t mode);
+int fchmod(int fd, mode_t mode);
+int fchmodat(int fd, const char *pathname, mode_t mode, int flag);
+(2)文件类型
+S_ISREG()普通文件、S_ISDIR()目录文件、S_ISCHR()字符特殊文件、S_ISBLK()块特殊文件、S_ISFIFO()管道或FIFO、
+S_ISLNK()符号链接、S_ISSOCK()套接字
+(3)设置用户ID程序/设置用户组ID程序
+set-user-ID和set-group-ID
+比如：passwd是一个设置用户ID程序，所有者是root。所有任何进程执行passwd有超级用户权限
+(4)
+目录的读权限：可以获得目录中所有文件名的列表
+目录的执行权限：使我们可以搜索该目录，寻找一个指定的文件名（$PATH中某路径无执行权限，则找不到该目录的可执行文件）
+(5)
+#include <unistd.h>
+int access(const char *pathname, int mode);		// mode = R_OK|W_OK|X_OK
+int faccessat(int fd, const char *pathname, int mode, int flag);
+这两个函数按照实际用户的ID和实际组ID进行访问权限设置
+当flag为AT_EACCESS时，访问检查调用进程的有效用户ID和有效组ID，而不是实际用户ID和实际组ID
+(6)
+int chown(const char *pathname, uid_t owner, gid_t group);
+int fchown(int fd, uid_t owner, gid_t group);
+int fchownat(int fd, const char *pathname, uid_t owner, gid_t group, int flag);
+int lchown(const char *pathname, uid_t owner, gid_t group);
+如果是“符号链接”，lchown和fchownat（设置了AT_SYMLINK_NOFOLLOW）更改的是链接本身的所有者，而不是对应文件的所有者
+(7)将文件长度截断为length
+int truncate(const char *pathname, off_t length);
+int ftruncate(int fd, off_t length);
+(8)添加链接（硬链接），去除链接
+int link(const char *existingpath, const chat *newpath); // 不允许构造指向目录的硬链接
+int linkat(int efd, const char *existingpath, int nfd, const char *newpath, int flag);
+int unlink(const char *pathname);
+int unlinkat(int fd, const char *pathname, int flag);
+(9)创建和读取链接（软链接）
+int symlink(const char *actualpath, const char *sympath);
+int symlinkat(const char *actualpath, int fd, const char *sympath);
+ssize_t readlink(const char *restric pathname, char *restric buf, size_t bufsize);	//读取链接本身的内容
+ssize_t readlinkat(int fd, const char *restric pathname, char *restric buf, size_t bufsize);
+(10) 删除，重命名
+#include <stdio.h>
+int remove(const char *pathname);
+int rename(const char *oldname, const char *newname);
+int renameat(int oldfd, const char *oldname, int newfd, const char *newname);
+(11)文件的时间：访问时间（st_atim）、修改时间（st_mtim）、状态更改时间（st_ctim）
+#include <sys/stat.h>
+int futimens(int fd, const struct timespec times[2]);  // times[2]包含访问时间、修改时间
+int utimensat(int fd, const char *path, const struct timespec times[2], int flag);
+(12)创建目录和删除目录   更改目录    获取完整路径
+int mkdir(const char *pathname, mode_t mode);
+int mkdirat(int fd, const char *pathname, mode_t mode);
+int rmdir(const char *pathname);
+int chdir(const char *pathname);
+int fchdir(int fd);
+char* getcwd(char *buf, size_t size);
+(13)主从设备号
+stat(argv[i], &buf);
+printf("dev = %d/%d", major(buf.st_dev),  minor(buf.st_dev));   // st_dev表示设备号。用major和minor函数提取主、子设备号
+if (S_ISCHR(buf.st_mode) || S_ISBLK(buf.st_mode)) 
+{
+	printf(" (%s) rdev = %d/%d", (S_ISCHR(buf.st_mode)) ? "character" : "block", major(buf.st_rdev), minor(buf.st_rdev));
+}		// st_rdev表示设备号(字符特殊文件、块特殊文件)。用major和minor函数提取主、子设备号
 
 
 
