@@ -98,7 +98,7 @@ long pathconf(const char *pathname, int name);
 long fpathconf(int fd, int name);
 （1）与文件或目录无关的运行时选项用sysconf函数来判断
 （2）与文件或目录有关的运行时选项通过调用pathconf或fpathconf函数来判断
-
+------------------------------------------------------------------------------------------------
 13.文件I/O
 #include <fcntl.h>
 (1)
@@ -154,7 +154,7 @@ cmd = F_GETLK/F_SETLK/F_SETLKW	  获取/设置记录锁
 其中：当前只定义了一个文件描述符标志FD_CLOEXEC
 0： exec时不关闭已经打开的文件描述符
 1： exec时关闭已经打开的文件描述符
-
+---------------------------------------------------------------------------------------------------------
 14.文件和目录
 (1)查看文件结构
 #include <sys/stat.h>
@@ -200,8 +200,8 @@ int unlinkat(int fd, const char *pathname, int flag);
 (9)创建和读取链接（软链接）
 int symlink(const char *actualpath, const char *sympath);
 int symlinkat(const char *actualpath, int fd, const char *sympath);
-ssize_t readlink(const char *restric pathname, char *restric buf, size_t bufsize);	//读取链接本身的内容
-ssize_t readlinkat(int fd, const char *restric pathname, char *restric buf, size_t bufsize);
+ssize_t readlink(const char *restrict pathname, char *restrict buf, size_t bufsize);	//读取链接本身的内容
+ssize_t readlinkat(int fd, const char *restrict pathname, char *restrict buf, size_t bufsize);
 (10) 删除，重命名
 #include <stdio.h>
 int remove(const char *pathname);
@@ -225,6 +225,75 @@ if (S_ISCHR(buf.st_mode) || S_ISBLK(buf.st_mode))
 {
 	printf(" (%s) rdev = %d/%d", (S_ISCHR(buf.st_mode)) ? "character" : "block", major(buf.st_rdev), minor(buf.st_rdev));
 }		// st_rdev表示设备号(字符特殊文件、块特殊文件)。用major和minor函数提取主、子设备号
-
-
-
+---------------------------------------------------------------------------------------------------------
+15.标准IO
+(1)流的定向函数（单字节、多字节）
+int fwide(FILE *fp, int mode);
+(2)3种类型的缓冲
+全缓冲：在填满标准I/O缓冲区后才进行实际I/O操作。
+行缓冲：在输入和输出中遇到换行符时，标准I/O库执行I/O操作。
+注意：每一行的缓冲区有限，如果填满了，即便尚未写入换行，也进行I/O操作
+不带缓冲：不对字符进行缓冲存储
+其中，设置缓冲的函数
+void setbuf(FILE *restrict fp, char *restrict buf);			全缓冲或行缓冲
+int setvbuf(FILE *restrict fp, char *restrict buf, int mode, size_t size);
+mode = _IOFBF全/_IOLBF行/_IONBF无，size为指定缓冲区大小
+(3)冲洗缓冲
+int fflush(FILE *fp);
+(4)打开一个标准I/O流，关闭一个标准I/O流
+FILE *fopen(const char *restrict pathname, const char *restrict type);			//用某文件打开
+FILE *fdopen(int fd, const chat *type)		// 从一个已有描述符打开，一般提供给管道，网络通信通道使用
+FILE *freopen(const char *restrict pathname, const char *restrict type, FILE *restrict fp);
+// 一般用于将一个指定的文件，打开为一个预定义的流：标准输入、标准输出、标准错误
+FILE *fmemopen(void *restrict buf, size_t size, const char *restrict type);		
+// 打开时，缓冲区第一个位置设置为null字节。此外，从内存打开一个流，流关闭，buf会被释放
+// type 为 r、w、a等
+      限制	              r		w	  a    r+    w+    a+
+  文件必须已存在		  √                 √
+放弃文件以前的内容              √                √
+	流可以读              √                 √    √     √
+	流可以写                    √     √     √    √     √
+流只可以在为尾端写                    √                √
+int fclose(FILE *fp);
+int fileno(FILE *fp);		// 获取某个流的文件描述符
+(5)输入、输出函数（一次一个）
+int getc(FILE *fp);			宏
+int fgetc(FILE *fp);		函数
+int getchar(void);   等同于getc(stdin);
+int ferror(FILE *fp);
+int feof(FILE *fp);		//每个流在FILE对象中，维护两个标志，出错标志，文件结束标志
+void clearerr(FILE *fp);		//清除上述标志
+int ungetc(int c, FILE *fp);		// 把字符压回流中
+int putc(int c, FILE *fp);
+int fputc(int c, FILE *fp);
+int putchar(int c);
+(6)输入、输出函数（一次一行），效率高，因为用memcopy，而memcopy使用汇编语言编写，非C语言
+char *fgets(char *restrict buf, int n, FILE *restrict fp);
+char *gets(char *buf);
+int fputs(const char *restrict str, FILE *restrict fp);
+int puts(const char *str);
+注意：每行中止处，自己处理换行符
+(7)输入、输出（二进制, 数组，结构体等）
+size_t fread(void *restrict ptr, size_t size, size_t nobj, FILE *restrict fp);
+size_t fwrite(const void *restrict ptr, size_t size, size_t nobj, FILE *restrict fp);
+(8)定位流
+long ftell(FILE *fp);							// 文件当前位置距文件首的距离
+int fseek(FILE *fp, long offset, int whence);	// 类似lseek
+void rewind(FILE *fp);							// 将一个流设置到文件的起始位置
+int fgetpos(FILE *restrict fp, fpos_t *restrict pos);
+int fsetpos(FILE *fp, const fpos_t *pos);			// 这两个函数用于移植到非unix系统
+(9)格式化输出
+int printf(const char *restrict format, ...);
+int fprintf(FILE *restrict fp, const char *restrict format, ...);
+int dprintf(int fd, const char *restrict format, ...);
+int sprintf(char *restrict buf, const char *restrict format, ...);
+int snprintf(char *restrict buf, size_t n, const char *restrict format, ...);
+(10)格式化输入
+int scanf(const char *restrict format, ...);
+int fscanf(FILE *restrict fp, const char *restrict fromat, ...);
+int sscanf(const char *restrict buf, const char *restrict format, ...);
+(11)临时文件
+char *tmpnam(char *ptr);
+FILE *tmpfile(void);
+char *mkdtemp(char *template);
+int mkstemp(char *template);
