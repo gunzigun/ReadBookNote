@@ -324,4 +324,50 @@ time_t time(time_t *calptr);			距离1970.1.1 00:00:00的秒数
 struct tm *localtime(const time_t *calptr);		获取当前时间
 // 把tm时间进行格式转换
 size_t strftime(char *restrict buf, size_t maxsize, const char *restrict format, const struct tm *restrict tmptr);
+----------------------------------------------------------------------------------------------------------------
+17.进程环境
+(1)退出函数
+void exit(int status);			// 执行清理关闭操作后，再退出
+void _Exit(int status);
+void _exit(int status);
+(2)退出处理函数
+void atexit(void (*func)(void));		登记一个处理函数，调用顺序和登记顺序相反，同一个函数可登记多次
+(3)C程序的存储空间布局
+正文段、初始化数据段、未初始化数据段、栈、堆（低地址-->高地址）
+(4)共享库
+gcc -static hello1.c 		// 阻止gcc使用共享库
+gcc hello1.c 				// gcc默认使用共享库
+使用共享库编译，可以明显减小可执行文件的正文和数据段长度
+(5)存储空间分配
+void *malloc(size_t size);
+void *callco(size_t nobj, size_t size);
+void *realloc(void *ptr, size_t newsize);
+void free(void *ptr);
+(6)环境变量
+char *getenv(const char *name);				
+int putenv(char *str);		// str格式“name=value”，将其加入到环境表中，name若存在，则删除原来定义
+// rewrite!=0,则先删除已有定义，rewrite==0，不删除现有定义（name不设置为新value，而且也不出错）
+int setenv(const char *name, const char *value, int rewrite);
+int usetenv(const char *name);		// 删除一个环境变量
+(7)跳转函数
+int setjmp(jmp_buf env);		// 返回值：若直接调用，返回0，若从longjmp返回则为非0
+void longjmp(jum_buf env, int val);
+案例实现：
+static jmp_buf buf; 
+void second(void)	{	printf("second\n");   longjmp(buf,1); // 跳回setjmp的调用处 - 使得setjmp返回值为1   }
+void first(void)	{	second();	printf("first\n");        // second跳转了，后一条输出不会执行了 } 
+int main() 
+{   
+    if ( ! setjmp(buf) )
+        first();                // 进入此行前，setjmp返回0
+    else                    	// 当longjmp跳转回，setjmp返回1，因此进入此行
+        printf("main\n");       // 打印
+    return 0;
+}
+输出 second \n main \n
+(8)资源限制
+int getrlimit(int resource, struct rlimit *rlptr);
+int setrlimit(int resource, const struct rlimit *rlptr);
+// resource有一些列枚举，RLIMIT_AS、RLIMIT_CPU等，rlimit结构，有一个软阈值成员，一个硬阈值成员。
+------------------------------------------------------------------------------------------------------------------
 

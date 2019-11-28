@@ -162,5 +162,8 @@ finger -p：列出该用户的帐号名称，真实姓名，用户专属目录�
 /etc/passwd,/etc/group,/etc/shadow,
 /etc/hosts(主机),/etc/networks(网络),/etc/protocols(协议),/etc/services(服务)
 
-
+7.
+size /usr/bin/cc 		查看正文段，数据段，bss段(全局变量、静态变量)的长度
+ text	data	bss	    dec	    hex	     filename
+988773  15120  10600  1014493  f7add   /usr/bin/cc
 
