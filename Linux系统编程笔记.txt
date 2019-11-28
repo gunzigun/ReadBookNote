@@ -297,3 +297,31 @@ char *tmpnam(char *ptr);
 FILE *tmpfile(void);
 char *mkdtemp(char *template);
 int mkstemp(char *template);
+----------------------------------------------------------------------------------------------------------------
+16.系统数据文件和信息
+(1)passwd信息
+struct passwd *getpwuid(uid_t uid);
+struct passwd *getpwnam(const char *name);
+void setpwent(void);						返回passwd的开头
+struct passwd *getpwent(void);				打开passwd文件，每执行一次，下读一行
+void endpwent(void);						需要关闭，getpwent，不知道何时结束，需要endpwent结束
+(2)阴影口令
+struct spwd *getspnam(const char *name);
+void setspent(void);
+struct spwd *getspent(void);
+void endspent(void);
+(3)组信息
+struct group *getgrgid(gid_t);
+struct group *getgrnam(const char *name);
+void setgrent(void);
+struct group *getgrent(void);
+void endgrent(void);
+(4)主机和操作系统相关信息、主机名
+int uname(struct utsname *name);
+int gethostname(char *name, int namelen);
+(5)时间
+time_t time(time_t *calptr);			距离1970.1.1 00:00:00的秒数
+struct tm *localtime(const time_t *calptr);		获取当前时间
+// 把tm时间进行格式转换
+size_t strftime(char *restrict buf, size_t maxsize, const char *restrict format, const struct tm *restrict tmptr);
+

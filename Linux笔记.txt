@@ -157,3 +157,10 @@ umask -S	打印符号格式
 			   【目录块和数据块】
 【目录a】（.|节点2549、..|节点1267）、【数据a】、【目录b】（.|1267、..|XX、testdir|节点2549）
 
+6.
+finger -p：列出该用户的帐号名称，真实姓名，用户专属目录，登入所用的Shell，登入时间，转信地址，电子邮件状态，
+/etc/passwd,/etc/group,/etc/shadow,
+/etc/hosts(主机),/etc/networks(网络),/etc/protocols(协议),/etc/services(服务)
+
+
+
