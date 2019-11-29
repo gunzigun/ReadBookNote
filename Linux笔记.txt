@@ -167,3 +167,6 @@ size /usr/bin/cc 		查看正文段，数据段，bss段(全局变量、静态变
  text	data	bss	    dec	    hex	     filename
 988773  15120  10600  1014493  f7add   /usr/bin/cc
 
+8.
+export PATH=$PATH:/opt/software/node-v8.9.3-linux-x64/bin/node
+PATH=$PATH:路径1:路径2:路径n; $PATH为系统变量,表示之前所有设置的路径，如果不加则之前所有的路径都失效。所以必须加上。

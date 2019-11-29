@@ -87,7 +87,7 @@ perroe(argv[0]);			基于当前的erron产生错误信息
 11.
 日历时间（time_t）：自1970.1.1 00:00:00的时间
 进程时间（clock_t）：
-（1）时钟时间：进程运行的时间总量
+（1）墙上时钟时间：进程运行的时间总量
 （2）用户CPU时间：执行用户指令所用的时间
 （3）系统CPU时间：为该进程执行内核程序所经历的时间
 
@@ -327,7 +327,7 @@ size_t strftime(char *restrict buf, size_t maxsize, const char *restrict format,
 ----------------------------------------------------------------------------------------------------------------
 17.进程环境
 (1)退出函数
-void exit(int status);			// 执行清理关闭操作后，再退出
+void exit(int status);			// 执行清理关闭操作后，再退出，会冲洗缓冲
 void _Exit(int status);
 void _exit(int status);
 (2)退出处理函数
@@ -370,4 +370,85 @@ int getrlimit(int resource, struct rlimit *rlptr);
 int setrlimit(int resource, const struct rlimit *rlptr);
 // resource有一些列枚举，RLIMIT_AS、RLIMIT_CPU等，rlimit结构，有一个软阈值成员，一个硬阈值成员。
 ------------------------------------------------------------------------------------------------------------------
+18.进程控制
+(1)进程标识
+ID为0的进程通常是调度进程，常常被称为交换进程（swapper），内核一部分
+ID为1的init进程，用户进程，以超级用户权限运行，用于启动UNIX系统
+pid_t getpid(void);		// 调用进程的进程ID
+pid_t getppid(void);	// 调用进程的父进程ID
+uid_t getuid(void);		// 调用进程的实际用户ID
+uid_t geteuid(void);	// 调用进程的有效用户ID
+gid_t getgid(void);		// 调用进程的实际组ID
+gid_t getegid(void);	// 调用进程的有效组ID
+(2)创建进程
+pid_t fork(void);		// 子进程返回0，父进程返回子进程ID，若出错，返回-1
+子进程获得父进程数据空间，堆，栈的副本。父子进程不共享存储空间，只共享正文段（代码）。
+父子进程的区别：子进程不继承父进程设置的文件锁，子进程的未处理闹钟被清除，子进程的未处理信号集设置成空集
+pid_t vfork(void);
+子进程立刻调用exec或exit，在调用之前，在父进程空间中运行，效率高
+vfork保证子进程先运行，在其exec或exit之后，父进程才可能被调度运行
+(3)僵死进程
+僵死进程的产生：
+在每个进程退出的时候，内核释放该进程所有的资源，包括打开的文件，占用的内存等，但是仍然为其保留一定的信息
+(包括进程号，退出状态，运行时间等)，直到父进程通过wait/waitpid来取时才释放。
+此时该进程处于僵死状态，该进程成为僵死进程(Zombie Process)。 这保证了父进程可以获取到子进程结束时的状态信息。
+仅仅在进程列表中保留一个位置，记载该进程的退出状态等信息供其他进程收集，除此之外，僵死进程不再占有任何内存空间。
+它需要它的父进程来为它收尸，如果他的父进程没安装SIGCHLD信号处理函数调用wait或waitpid()等待子进程结束，
+又没有显式忽略该信号，那么它就一直保持僵死状态，如果这时父进程结束了，僵死的子进程成为"孤儿进程"，
+过继给1号进程init，init始终会负责清理僵死进程，它产生的所有僵死进程也跟着消失
+(4)
+pid_t wait(int *statloc);						// 等待任何子进程终止
+pid_t waitpid(pid_t pid, int *statloc, int options);		// 等待指定子进程终止，pid = -1时，等效于wait
+// options可以控制非阻塞，因为有时候只想获取状态记录一下，不想阻塞
+(5)exec系列函数
+这些函数并不创建新进程，前后进程ID不变，不过用磁盘上的新程序，替换了当前进程的正文段，数据段，堆段，栈段
+寻找pathname的文件执行
+int execl(const char *pathname, const char *arg0, ... /* (char *)0 */);
+int execv(const char *pathname, char *const argv[]);
+int execle(const char *pathname, const char *arg0, ... /* (char *)0, char *const envp[] */);
+int execve(const char *pathname, char *const argv[], char *const envp[]);
+在PATH环境变量查找，filename，然后执行
+int execlp(const char *filename, const char *arg0, ... /* (char *)0 */);
+int execvp(const char *filename, char *const argv[]);
+根据文件描述符，执行
+int fexecve(int fd, char *const argv[], char *const envp[]);
+l表示list（可变参数列表），v表示vector
+注意：解释器文件：以上函数的文件，可以使用一个解释器文件，最终执行的是该文件里面指定的内容
+文本文件，内容格式：#！ /pathname [optional-argument]
+(6)
+int setuid(uid_t uid);
+int setgid(gid_t gid);			// 这两个设置的都是有效ID
+// 进程有超级用户权限，将实际用户ID，有效用户ID、保存的设置用户ID，都变为uid
+// 进程无超级用户权限，uid等于实际用户ID或保存的设置用户ID，则只将有效用户ID设置为uid
+int setreuid(uid_t ruid, uid_t euid);
+int setregid(gid_t rgid, gid_t egid);
+int seteuid(uid_t uid);
+int setegid(gid_t gid);
+(7)系统函数，执行cmd
+int system(const char *cmdstring);		// 其中调用了fork，exec，waitpid，有3种返回值
+①fork失败，或者waitpid返回除EINTR之外出错，则返回-1，设置errno
+②如果exec失败（表示不能执行shell），返回值：如同shell执行exit(127)一样
+③三个函数都成功了，返回shell的终止状态
+(8)获取登录名
+可以使用getpwuid(getuid()),但是当一个uid对应多个登录名时，就不能正确执行了
+char *getlogin(void);
+(9)进程调度，nice值，nice越小，优先级越高
+int nice(int incr);				// incr为0时获取，当前的nice值
+int getpriority(int which, id_t who);
+which = PRIO_PROCESS进程、PRIO_PGRP进程组、PRIO_USER用户ID，who参数选择一个或多个感兴趣的进程
+如果which参数作用于多个进程，取优先级最高，nice最小的
+int setpriority(int which, id_t who, int value);
+(10)
+clock_t times(struct tms *buf);		// 返回相对某一系统时刻的时间
+包括tms结构体里面的：用户CPU时间，系统CPU时间，也是相对某一时刻的时间
+要知道两次的相对时间，再相减，才能获得进程执行的各个时间
+--------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
 
