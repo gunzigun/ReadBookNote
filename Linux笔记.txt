@@ -114,6 +114,7 @@ du -h [目录名]  //disk usage
 
 进程信息
 ps aux 		 	// a所有用户的进程 u详细信息 x显示没有控制终端的进程
+ps -o pid,ppid,pgid,sid,tpgid,comm		// -o表示显示的选项
 top 
 kill [-9](强制终止) 进程代号
 
@@ -170,3 +171,9 @@ size /usr/bin/cc 		查看正文段，数据段，bss段(全局变量、静态变
 8.
 export PATH=$PATH:/opt/software/node-v8.9.3-linux-x64/bin/node
 PATH=$PATH:路径1:路径2:路径n; $PATH为系统变量,表示之前所有设置的路径，如果不加则之前所有的路径都失效。所以必须加上。
+
+9.
+jobs 查看当前shell环境中已启动的任务状态
+bg 将进程搬到后台运行
+fg 将进程搬到前台运行
+tar czf /data/backup.tgz /data/backup &   末尾的&表示在后台执行
