@@ -349,7 +349,7 @@ int putenv(char *str);		// str格式“name=value”，将其加入到环境表�
 // rewrite!=0,则先删除已有定义，rewrite==0，不删除现有定义（name不设置为新value，而且也不出错）
 int setenv(const char *name, const char *value, int rewrite);
 int usetenv(const char *name);		// 删除一个环境变量
-(7)跳转函数
+(7)跳转函数（set保存当前堆栈环境，long再次执行）
 int setjmp(jmp_buf env);		// 返回值：若直接调用，返回0，若从longjmp返回则为非0
 void longjmp(jum_buf env, int val);
 案例实现：
@@ -466,6 +466,7 @@ pid_t getsid(pid_t pid);
 中断键（Delete或Ctrl+C），会将中断信号SIGINT，发送至前台进程组的所有进程
 退出键（Ctrl+\），会将退出信号SIGQUIT，发送至前台进程组的所有进程
 挂起键（Ctrl+Z），会将挂起信号SIGTSTP，发送至前台进程组的所有进程
+状态键（Ctrl+T），会将状态信号SIGINFO，发送至前台进程组的所有进程
 (4)
 pid_t tcgetpgrp(int fd);				// 获取前台进程组ID
 int tcsetpgrp(int fd, pid_t pgrpid);	// 设置前台进程组ID
@@ -488,5 +489,55 @@ hello, world
 一个进程组，不是孤儿进程组的条件：该组有一个进程，其父进程在属于同一会话的另一个组中
 POSIX.1 要求向新孤儿进程组中处于停止状态的每一个进程发送挂断信号（SIGHUP），接着又向其发送继续信号（SIGCONT）
 --------------------------------------------------------------------------------------------------------------
+20.信号
+(1)某一信号出现时，可以告诉内核按下列3种方式之一进行处理
+①忽略信号，大多信号都可以使用这种方式，两种不行，SIGKILL，SIGSTOP
+②捕捉信号，注意，不能捕捉SIGKILL和SIGSTOP信号
+③执行系统默认动作，大多默认动作是，终止该进程
+(2)
+void (*signal(int signo, void (*func)(int)))(int);
+#define SIG_ERR (void (*)())-1
+#define SIG_DFL (void (*)())0
+#define SIG_IGN (void (*)())1
+func指定为SIG_IGN忽略，SIG_DFL默认，函数指针则为捕获，执行对应函数
+这种使用形式，太复杂了
+typedef void Sigfunc(int);
+Sigfunc *signal(int, Sigfunc *);
+(3)可重入函数
+可重入函数主要用于多任务环境中，一个可重入的函数简单来说就是可以被中断的函数，
+也就是说，可以在这个函数执行的任何时刻中断它，转入OS调度下去执行另外一段代码，而返回控制时不会出现什么错误；
+而不可重入的函数由于使用了一些系统资源，比如全局变量区，中断向量表等，
+所以它如果被中断的话，可能会出现问题，这类函数是不能运行在多任务环境下的（除非利用信号量和锁）
+(4)SIGCLD信号
+①进程明确将该信号配置为SIG_IGN,这其子进程不会产生僵死进程
+②这与默认动作（SIG_DFL）不同
+③将其配置成捕获，则做相应处理
+(5)一些标准术语
+①在信号产生（generation）和递送（delivery）之间的时间间隔内，称信号是"未决的"（pending）
+②进程可以选用“阻塞信号递送”，则进程将此信号保持为未决状态，知道进程对此信号解除了阻塞，或将此信号改为忽略
+③"信号屏蔽字"（signal mask），它规定了当前要阻塞递送到该进程的信号集
+(6)
+int kill(pid_t pid, int signo);				// 将信号发送给进程或进程组
+int raise(int signo);						// 允许进程向自身发送信号，等同于 kill(getpid(), signo);
+关于kill的pid参数（4中发送参数pid值，前提是有权限发）
+pid>0  : 给pid的进程发
+pid==0 : 给同一进程组的所有进程发
+pid<0  : 给|pid|的进程组中所有进程发
+pid==-1: 给所有进程发
+非超级用户：发送者的实际/有效用户ID，必须等于接受者的实际/有效ID，才可以发送
+(7)
+unsigned int alarm(unsigned int seconds);
+启动定时器，多少秒后，发送SIGALRM信号，如果不捕获，则进程会终止。
+多次调用，时间不累计，会不断更新
+int pause(void);
+使进程挂起，直至捕捉到一个信号
+只有执行了一个信号处理程序，并从其返回时，pause才返回，并且返回-1，erron设置为EINTR
+
+
+
+
+
+
+
 
 
