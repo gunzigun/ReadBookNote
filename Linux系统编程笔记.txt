@@ -321,6 +321,8 @@ int uname(struct utsname *name);
 int gethostname(char *name, int namelen);
 (5)时间
 time_t time(time_t *calptr);			距离1970.1.1 00:00:00的秒数
+time_t now;
+time(&now);	 // 等同于now = time(NULL)
 struct tm *localtime(const time_t *calptr);		获取当前时间
 // 把tm时间进行格式转换
 size_t strftime(char *restrict buf, size_t maxsize, const char *restrict format, const struct tm *restrict tmptr);
@@ -351,7 +353,7 @@ int setenv(const char *name, const char *value, int rewrite);
 int usetenv(const char *name);		// 删除一个环境变量
 (7)跳转函数（set保存当前堆栈环境，long再次执行）
 int setjmp(jmp_buf env);		// 返回值：若直接调用，返回0，若从longjmp返回则为非0
-void longjmp(jum_buf env, int val);
+void longjmp(jum_buf env, int val);			// 在一个信号处理程序中使用longjmp，可能会使得其它信号处理程提前结束
 案例实现：
 static jmp_buf buf; 
 void second(void)	{	printf("second\n");   longjmp(buf,1); // 跳回setjmp的调用处 - 使得setjmp返回值为1   }
@@ -532,12 +534,48 @@ unsigned int alarm(unsigned int seconds);
 int pause(void);
 使进程挂起，直至捕捉到一个信号
 只有执行了一个信号处理程序，并从其返回时，pause才返回，并且返回-1，erron设置为EINTR
-
-
-
-
-
-
+(8)信号集
+int sigemptyset(sigset_t *set);
+int sigfillset(sigset_t *set);
+int sigaddset(sigset_t *set, int signo);
+int sigdelset(sigset_t *set, int signo);
+int sigismember(const sigset_t *set, int signo);
+(9)信号屏蔽字
+int sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
+若oset非空，那么当前信号屏蔽字，通过oset返回
+若set非空，通过how来执行，屏蔽字变更方式
+①how=SIG_BLOCK，往现有的屏蔽字加入set，		注意SIGKILL和SIGSTOP、SIGABRT是不能阻塞的
+②how=SIG_UNBLOCK，往现有屏蔽字去除set
+③how=SIG_SETMASK，现有屏蔽字，完全变更为set
+int sigpending(sigset_t *set)		// 返回当前，阻塞不能提送（未决）的信号集
+阻塞并没有忽略掉，到解除屏蔽字，立刻重新接收到
+(10)signal函数是早期版本，sigaction函数更加灵活
+int sigaction(int signo, const struct sigaction *restrict act, struct sigaction *restrict oact);
+若act非空，则要修改相应动作，若oact非空，这由其返回上一个动作
+(11)
+int sigsetjmp(sigjmp_buf env, int savemask);
+void siglongjmp(sigjmp_buf env, int val);
+只是增加了一个savemask参数，如果其非0，则保存时，信号屏蔽字也会保存下来
+(12)
+int sigsuspend(const sigset_t *sigmask);
+将屏蔽字，设置为sigmask，先暂停，如果捕获到一个信号，切从该信号处理函数返回时，则继续进行
+(13)
+void abort(void);
+此函数将SIGABRT信号，发送个调用进程，等同于raise(SIGABRT);
+捕获SIGABRT的作用是，终止前，执行清理操作
+(14)
+unsigned int sleep(unsigned int seconds);
+时间到了：返回0
+或者捕获信号并返回：返回剩余描述
+其它情况，进程会一直“睡着”
+int nanosleep(const struct timespec *reqtp, struct timespec *remtp);
+功能和sleep类似，不过reqtp是纳秒级别，remtp是剩余时间，用来返回
+(15)信号排队
+int sigqueue(pid_t pid, int signo, const union sigval value);
+使用前，需要将sigaction结构要把flag设置为SA_SIGINFO，sa_sigaction（注意不是sa_handle）提供信号处理程序
+(16)信号和信号名
+int sig2str(int signo, char *str);
+int str2sig(const char *str, int *signop);
 
 
 
