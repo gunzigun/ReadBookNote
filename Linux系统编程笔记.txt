@@ -576,6 +576,93 @@ int sigqueue(pid_t pid, int signo, const union sigval value);
 (16)信号和信号名
 int sig2str(int signo, char *str);
 int str2sig(const char *str, int *signop);
+----------------------------------------------------------------------------------------------------------------
+21.线程
+(1)线程ID，线程ID只有在它所属的进程上下文中才有意义
+int pthread_equal(pthread_t tid1, pthread_t tid2);
+pthread_t pthread_self(void);
+FreeBSD：使用指向线程数据结构的指针作为他的线程ID
+Linux：使用无符号长整形来表示线程ID
+(2)
+int pthread_create(pthread_t *restrict tidp, const pthread_attr_t *restrict attr, 
+					void *(*start_rtn)(void *), void *restrict arg);
+新创建的线程ID会被设置成tidp指向的内存单元，attr参数用于定制各种不同的线程属性（默认属性，使用NULL）
+新线程，从start_rtn函数开始，只有一个无类型指针参数arg，如果多个参数，要定义个结构，然后传结构指针
+(3)
+原来时因为pthread库不是Linux系统默认的库，连接时需要使用库libpthread.a
+所以在使用pthread_create创建线程时，在编译中要加-lpthread参数 : gcc createThread.c -lpthread -o createThread. 
+(4)
+如果进程中的任意线程调用了exit、_Exit或者_exit，那么整个进程就会终止。信号也是如此
+单个线程可以通过三种方式退出：
+①线程可以简单地从启动例程中返回，返回值时线程的退出码
+②线程可以被同一进程中的其他线程取消
+③线程调用void pthread_exit(void * rval_ptr);	// rval_ptr包含返回码(退出时自己指定)
+int pthread_join(pthread_t thread, void **rval_ptr);
+调用此函数的线程将阻塞，直到指定线程thread，返回或被取消，如果取消rval_ptr指定内存单元，PTHREAD_CANCELED
+如果pthread_exit内的rval_ptr指针指向函数内部成员，则pthread_join获取到的是未定义的值，野指针
+(5)
+int pthread_cancel(pthread_t tid);			// 取消同进程的其它线程
+(6)线程清理处理程序
+void pthread_cleanup_push(void (*rtn)(void *), void *arg);			// 类似atexit函数
+以下三种情况会执行注册的清理函数
+①调用pthread_exit时②响应取消请求时③void pthread_cleanup_pop(int execute);被调用，且execute不为0
+(7)默认情况，线程的终止状态会保存知道该线程调用pthread_join
+int pthread_detach(pthread_t tid);  使线程处于分离状态，不再能使用pthread_join等待终止。因为该线程终止后就立即被回收了
+(8)互斥锁
+int pthread_mutex_init(pthread_mutex_t *restrict mutex, const pthread_mutexattr_t *restrict attr);
+int pthread_mutex_destroy(pthread_mutex_t *mutex);
+初始化一个互斥量，销毁一个互斥量，通过默认属性初始化，attr=NULL即可
+int pthread_mutex_lock(pthread_mutex_t *mutex);			// 如果已经被锁了，则阻塞自己，直到解锁
+int pthread_mutex_trylock(pthread_mutex_t *mutex);		// 未锁住，返回0，锁住，返回EBUSY，不会被阻塞（避免死锁）
+int pthread_mutex_unlock(pthread_mutex_t *mutex);		 
+带有超时的互斥锁
+int pthread_mutex_timedlock(pthread_mutex_t *restrict mutex, const struct timespec *restrict tsptr);
+超时指定愿意等待的绝对时间，即在X之前可以阻塞等待，而不是说愿意阻塞Y秒
+返回值：若成功，返回0，否则，返回错误编号
+(9)读写锁
+一次只有一个线性可以占有写模式的读写锁，但是多个线程可以同时占有读模式的读写锁。
+int pthread_rwlock_init(pthread_rwlock_t *restrict rwlock, const pthread_rwlockattr_t *restrict attr);
+int pthread_rwlock_destroy(pthread_rwlock_t *rwlock);
+和互斥锁类似
+int pthread_rwlock_rdlock(pthread_rwlock_t *rwlock);
+int pthread_rwlock_wrlock(pthread_rwlock_t *rwlock);
+int pthread_rwlock_unlock(pthread_rwlock_t *rwlock);
+int pthread_rwlock_tryrdlock(pthread_rwlock_t *rwlock);
+int pthread_rwlock_trywrlock(pthread_rwlock_t *rwlock);		// 同样与互斥锁的try版本类似
+带有超时的读写锁
+int pthread_rwlock_timedrdlock(pthread_rwlock_t *restrict rwlock, const struct timespec *restrict tsptr);
+int pthread_rwlock_timedwrlock(pthread_rwlock_t *restrict rwlock, const struct timespec *restrict tsptr);
+(10)条件变量（需要更互斥锁搭配使用）
+条件改变前，上锁，改变完，解锁，再发送signal，在改变时，不让其他线程获取，但是wait函数处，要先解锁一下
+条件获取前，上锁，获取完，解锁，不上锁的化，在获取时，不让其他线程改变
+int pthread_cond_init(pthread_cond_t *restrict cond, const pthread_condattr_t *restrict attr);
+int pthread_cond_destroy(pthread_cond_t *cond);
+// 调用者把锁住的互斥量存入，再等待条件，对互斥量解锁，保证不会错过条件变化，冲wait函数返回时，互斥量再次被锁上
+int pthread_cond_wait(pthread_cond_t *restrict cond, pthread_mutex_t *restrict mutex);
+int pthread_cond_timedwait(pthread_cond_t *restrict cond, pthread_mutex_t *restrict mutex,
+							const struct timespec *restrict tsptr);
+int pthread_cond_signal(pthread_cond_t *cond);		// 至少一个
+int pthread_cond_broadcast(pthread_cond_t *cond);	// 唤醒等待该条件的所有线程
+(11)自旋锁（和互斥锁类似，但是互斥锁是休眠，而自旋锁是忙等）
+int pthread_spin_init(pthread_spinlock_t *lock, int pshared);	
+// pshared = PTHREAD_PROCESS_SHARED可被不同进程的线程获取，=PTHREAD_PROCESS_PRIVATE只能被同进程的线程获取
+int pthread_spin_destroy(pthread_spinlock_t *lock);
+int pthread_spin_lock(pthread_spinlock_t *lock);
+int pthread_spin_trylock(pthread_spinlock_t *lock);
+int pthread_spin_unlock(pthread_spinlock_t *lock);
+(12)屏障
+int pthread_barrier_init(pthread_barrier_t *restrict barrier,
+						const pthread_barrierattr_t *restrict attr,
+						unsigned int count);
+其中count表示屏障需要达到的数量
+int pthread_barrier_destroy(pthread_barrier_t *barrier);
+int pthread_barrier_wait(pthread_barrier_t *barrier);
+调用一次，记一次数，知道最后一次调用，计数达到count时，所有所有线程启动
+--------------------------------------------------------------------------------------------------------------
+
+
+
+
 
 
 
