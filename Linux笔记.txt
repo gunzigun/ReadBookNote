@@ -113,7 +113,7 @@ df -h			//disk free
 du -h [目录名]  //disk usage
 
 进程信息
-ps aux 		 	// a所有用户的进程 u详细信息 x显示没有控制终端的进程
+ps auxjef 	// a所有用户的进程 u详细信息 x显示没有控制终端的进程 j显示与作业有关的信息 -e 显示所有进程 -f 全格式
 ps -o pid,ppid,pgid,sid,tpgid,comm		// -o表示显示的选项
 top 
 kill [-9](强制终止) 进程代号   // 其实kill（杀死）是不恰当的，相当于kill （SIGTERM） 进程号，只是发送了终止信号而已
