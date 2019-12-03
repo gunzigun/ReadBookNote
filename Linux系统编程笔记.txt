@@ -87,7 +87,7 @@ perroe(argv[0]);			基于当前的erron产生错误信息
 11.
 日历时间（time_t）：自1970.1.1 00:00:00的时间
 进程时间（clock_t）：
-（1）墙上时钟时间：进程运行的时间总量
+（1）实际运行时间（墙上时间）：进程运行的时间总量
 （2）用户CPU时间：执行用户指令所用的时间
 （3）系统CPU时间：为该进程执行内核程序所经历的时间
 
@@ -128,7 +128,7 @@ ssize_t read(int fd, void *buf, size_t nbytes);
 (6)
 ssize_t write(int fd, const void *buf, size_t nbytes);
 返回值：若成功，返回已写的字节数，若出错，返回-1
-(5)(6)对应有原子操作版本,先lseek，再read，write，只不过绑定为原子操作
+(5)(6)对应有原子操作版本,先lseek，再read，write，只不过绑定为原子操作（在多线程环境下很有用）
 ssize_t pread(int fd, void *buf, size_t nbytes, off_t offset);
 ssize_t pwrite(int fd, const void *buf, size_t nbytes, off_t offset);
 (7)
@@ -444,6 +444,13 @@ int setpriority(int which, id_t who, int value);
 clock_t times(struct tms *buf);		// 返回相对某一系统时刻的时间
 包括tms结构体里面的：用户CPU时间，系统CPU时间，也是相对某一时刻的时间
 要知道两次的相对时间，再相减，才能获得进程执行的各个时间
+struct tms 
+{
+clock_t tms_utime; /* 用户CPU时间 */
+clock_t tms_stime; /* 系统CPU时间 */
+clock_t tms_cutime; /* 已终止子进程的用户CPU时间 */
+clock_t tms_cstime; /* 已终止子进程的系统CPU时间 */
+}
 --------------------------------------------------------------------------------------------------------------
 19.进程关系
 (1)进程组ID
@@ -659,7 +666,86 @@ int pthread_barrier_destroy(pthread_barrier_t *barrier);
 int pthread_barrier_wait(pthread_barrier_t *barrier);
 调用一次，记一次数，知道最后一次调用，计数达到count时，所有所有线程启动
 --------------------------------------------------------------------------------------------------------------
-
+22.线程控制
+(1)线程基本属性
+int pthread_attr_init(pthread_attr_t *attr);
+int pthread_attr_destory(pthread_attr_t *attr);
+线程的分离状态，创建线程时就知道不需要了解其终止状态，则修改pthread_attr_t中的detachstate属性
+int pthread_attr_getdetachstate(const pthread_attr_t *restrict attr, int *detachstate);
+int pthread_attr_setdetachstate(pthread_attr_t *attr, int *detachstate);
+detachstate=PTHREAD_CREATE_DETACHED或PTHREAD_CREATE_JOINABLE
+进程中只有一个栈，它的大小通常不是问题，但是在线程中需要共享这一个栈
+栈属性，可以指定不同大小，而且栈不够时，还可用malloc分配的空调，来代替栈空间
+其中stackaddr是栈的最低地址，但不知道是首还是尾，因为跟系统有关
+int pthread_attr_getstack(const pthread_attr_t *restrict attr, 
+						void **restrict stackaddr, size_t *restrict stacksize);
+int pthread_attr_setstack(pthread_attr_t *attr, void *stackaddr, size_t stacksize);
+int pthread_attr_getstacksize(const pthread_attr_t *restrict attr, size_t *restrict stacksize);
+int pthread_attr_setstacksize(pthread_attr_t *attr, size_t stacksize);
+线程属性guardsize控制线程栈末尾之后用以避免栈溢出的扩展内存大小
+int pthread_attr_getguardsize(const pthread_attr_t *restrict attr, size_t *restrict guardsize);
+int pthread_attr_setguardsize(pthread_attr_t *attr, size_t guardsize);
+(2)同步属性-互斥量属性
+int pthread_mutexattr_init(pthread_mutexattr_t *attr);
+int pthread_mutexattr_destory(pthread_mutexattr_t *attr);
+共享属性，设置为PTHREAD_PROCESS_SHARED后不同进程中的线程，都受影响，反之PTHREAD_PROCESS_PRIVATE
+int pthread_mutexattr_getpshared(const pthread_mutexattr_t *restrict attr, int *restrict pshared);
+int pthread_mutexattr_setpshared(pthread_mutexattr_t *attr, int pshared);
+健壮属性，PTHREAD_MUTEX_ROBUST，表示持有mutex的进程中止时，要恢复mutex，否则使用PTHREAD_MUTEX_STALLED啥也不干
+int pthread_mutexattr_getrobust(const pthread_mutexattr_t *restrict attr, int *restrict robust);
+int pthread_mutexattr_setrobust(pthread_mutexattr_t *attr, int robust); 
+以及一些相关，类型属性(比如，重复加锁会怎么样，解锁状态解锁会怎么样)
+int pthread_mutexattr_gettype(const pthread_mutexattr_t *restrict attr, int *restrict type);
+int pthread_mutexattr_settype(pthread_mutexattr_t *attr, int type); 
+(3)同步属性-读写锁属性
+int pthread_rwlockattr_init(pthread_rwlockattr_t *attr);
+int pthread_rwlockattr_destory(pthread_rwlockattr_t *attr);
+共享属性，设置为PTHREAD_PROCESS_SHARED后不同进程中的线程，都受影响，反之PTHREAD_PROCESS_PRIVATE
+int pthread_rwlockattr_getpshared(const pthread_rwlockattr_t *restrict attr, int *restrict pshared);
+int pthread_rwlockattr_setpshared(pthread_rwlockattr_t *attr, int pshared);
+(4)同步属性-条件变量属性
+int pthread_condattr_init(pthread_condattr_t *attr);
+int pthread_condattr_destory(pthread_condattr_t *attr);
+共享属性，设置为PTHREAD_PROCESS_SHARED后不同进程中的线程，都受影响，反之PTHREAD_PROCESS_PRIVATE
+int pthread_condattr_getpshared(const pthread_condattr_t *restrict attr, int *restrict pshared);
+int pthread_condattr_setpshared(pthread_condattr_t *attr, int pshared);
+时钟属性，用于控制pthread_cond_timedwait函数超时参数，采用哪个时钟
+int pthread_condattr_getpclock(const pthread_condattr_t *restrict attr, clockid_t *restrict clock_id);
+int pthread_condattr_setpclock(pthread_condattr_t *attr, clockid_t clock_id);
+(5)同步属性-屏障属性
+int pthread_barrierattr_init(pthread_barrierattr_t *attr);
+int pthread_barrierattr_destory(pthread_barrierattr_t *attr);
+共享属性，设置为PTHREAD_PROCESS_SHARED后不同进程中的线程，都受影响，反之PTHREAD_PROCESS_PRIVATE
+int pthread_barrierattr_getpshared(const pthread_barrierattr_t *restrict attr, int *restrict pshared);
+int pthread_barrierattr_setpshared(pthread_barrierattr_t *attr, int pshared);
+(6)如果一个函数在相同的时间点，可以被多个线程安全地调用，那称函数是线程安全的
+(7)线程特定数据（线程私有数据）
+int pthread_once(pthread_once_t *once_control, void (*init_routine) (void))；
+在多线程编程环境下，尽管pthread_once()调用会出现在多个线程中
+init_routine()函数仅执行一次，究竟在哪个线程中执行是不定的，是由内核调度来决定。
+Linux Threads使用互斥锁和条件变量保证由pthread_once()指定的函数执行且仅执行一次，而once_control表示是否执行过
+int pthread_key_create(pthread_key_t *keyp, void (*destructor)(void *));		// 将键与特定线程关联
+int pthread_key_delete(pthread_key_t key);     									// 将键与特定线程取消关联
+void *pthread_getspecific(pthread_key_t key);
+int pthread_setspecific(pthread_key_t key, const void *value);
+(8)取消选项
+int pthread_setcancelstate(int state, int *oldstate);
+state=PTHREAD_CANCEL_ENABLE和PTHREAD_CANCEL_DISABLE
+被设为DISABLE时，取消线程，会被挂起，直到状态变为ENABLE，再在合适点取消
+void pthread_testcancel(void);	// 讲挂起的取消请求，立刻执行
+int pthread_setcanceltype(int type, int *oldtype);
+PTHREAD_CANCEL_DEFERRED推迟取消，PTHREAD_CANCEL_ASYNCHRONOUS异步取消
+(9)线程与信号
+int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
+int sigwait(const sigset_t *restrict set, int *restrict signop);
+int pthread_kill(pthread_t thread, int signo);
+创建线程时，新建线程会继承现有信号屏蔽字，但是sigwait会解除信号的阻塞状态，这样就只有一个线程可以获取到信号了
+(10)绑定fork处理程序
+int pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void));
+prepare在调用fork以后运行，创建子进程前调用，在父进程上下文中
+parent在fork调用返回给父进程前调用，在父进程上下文调用
+child在fork调用返回到子进程前运行，在子进程上下文调用
+--------------------------------------------------------------------------------------------------------------------
 
 
 
