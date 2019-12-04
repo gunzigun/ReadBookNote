@@ -769,7 +769,64 @@ ident一般是程序名称，facility程序类型，系统定义
 若守护进程支持配置选项：那么配置文件通常存放在/etc中，name.conf
 若更改了某配置项，守护进程要停止，然后再启动一遍配置生效。
 为了避免这种麻烦：守护进程可以捕捉SIGHUP信号，重新读配置文件
-
+----------------------------------------------------------------------------------------------------------------
+24.高级I/O
+(1)非阻塞I/O使我们可以发出open、read和write这样的I/O操作，并使这些操作不会永远阻塞
+调用open获得描述符，则可以指定O_NONBLOCK标志
+对于已经打开的一个描述符，则可以调用fcntl，由该函数打开O_NONBLOCK文件状态标志
+(2)记录锁
+int fcntl(int fd, int cmd, .../* struct flock *flockptr */)
+cmd = F_GETLK、F_SETLK、F_SETLKW(阻塞式)
+struct flock
+{
+	short l_type;		/* F_RDLCK F_WRLCK or F_UNLCK */
+	short l_whence;		/* SEEK_SET SEEK_CUR or SEEK_END */
+	off_t l_start;		/* offset in bytes, relative to l_whence */
+	off_t l_len;		/* length, in bytes; 0 means lock to EOF */
+	pid_t l_pid;		/* return with F_GETLK, owner of lock */
+}
+建议性锁：文件加了写锁，这时再加读锁，加不上，但是，从中读内容，系统也会让你读，正确性，用户自己保证
+强制性锁：文件加了写锁，这时再加读锁，加不上，并且，从中读内容，系统不会让你读，正确性，系统来保证
+(3)I/O多路转接
+int select(int maxfdpl, fd_set *restrict readfds, fd_set *restrict writefds, fd_set *restrict exceptfds,
+			struct timeval *restrict tvptr);
+tvptr == NULL 永远等待，直到有一个描述符做好准备，返回准备好的数量，否则，返回-1，erron设置为EINTER
+tvptr->tv_sec和tvptr->tv_usec都为0，根本不等待，直接看一下有没有准备好的fd
+tvptr->tv_sec和tvptr->tv_usec不都为0，跟第一种情况一样，不过只等待指定时间，时间到了返回0
+int FD_ISSET(int fd, fd_set *fdset);		// select返回后，判断描述符是否就绪
+int FD_CLR(int fd, fd_set *fdset);
+int FD_SET(int fd, fd_set *fdset);
+int FD_ZERO(fd_set *fdset);
+类似更加精确的实现
+int pselect(int maxfdpl, fd_set *restrict readfds, fd_set *restrict writefds, fd_set *restrict exceptfds,
+			const struct timespec *restrict tsptr,
+			const sigset_t *restrict sigmask);
+(4)异步I/O（略）
+(5)散步读，聚集写
+ssize_t readv(int fd, const struct iovec *iov, int iovcnt);		
+ssize_t writev(int fd, const struct iovec *iov, int iovcnt);
+iov是数组第一个，数组中包含多个iovec
+struct iovec
+{
+	void *iov_base;		/*starting address of buffer*/
+	size_t iov_len;		/*size of buffer*/
+}
+(6)读写管道、网络设备、终端时，可能返回值，小于指定需要读写的长度N
+ssize_t readn(int fd, void *buf, size_t nbytes);
+ssize_t writen(int fd, void *buf, size_t nbytes);
+readn和writen的实现只是暗血多次调用read和write，直至读写了n个字节数据
+(7)存储映射I/O
+将文件映射到一块缓冲区上，读缓冲区，相当于读文件，写缓冲区，相当于写文件
+void *mmap(void *addr, size_t len, int prot, int flag, int fd, off_t off);
+addr参数用于指定映射存储区的起始地址，通常设置为0，表示有系统选择，函数的返回值就是起始地址
+fd，off，表示从哪个文件的什么位置，做映射
+prot指定对映射区的保护，不能超过文件fd的打开权限
+（PROT_READ映射区可读、PROT_WRITE映射区可写、PROT_EXEC映射区可执行、PROT_NONE映射区不可访问）
+flag指定映射区的一些标识
+int mprotect(void *addr, size_t len, int prot);			// 可以更改一个现有映射的权限
+int msync(void *addr, size_t len, int flags); 			// 类似fsync，但作用于存储映射区
+int munmap(void *addr, size_t len);						// 关闭映射区，但是不会把使映射区的内容写到磁盘文件上
+------------------------------------------------------------------------------------------------------------------
 
 
 
