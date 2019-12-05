@@ -132,13 +132,14 @@ ssize_t write(int fd, const void *buf, size_t nbytes);
 ssize_t pread(int fd, void *buf, size_t nbytes, off_t offset);
 ssize_t pwrite(int fd, const void *buf, size_t nbytes, off_t offset);
 (7)
-int dup(int fd);						// 新的描述符，一定是可用的最小值  
+int dup(int fd);						// 复制当前，返回新的描述符，指向同一个位置，一定是可用的最小值  
 等同：fcntl(fd,F_DUPFD,0)
 dup(0)等同：open("/dev/fd/0", mode)
-int dup2(int fd, int fd2);				// 如果fd2已经打开，则先关闭掉，然后重新指向
+int dup2(int fd, int fd2);				// 如果fd2已经打开，则先关闭掉，然后重新指向为fd
 等同：close(fd2);  fcntl(fd,F_DUPFD,fd2);   // 这样就不是原子操作啦
 两个函数的返回值：若成功，返回新的文件描述符，若出错，返回-1
 注意：新的描述符，跟原来的描述符，指向同一个“文件表项”
+dup2(fd,STDOUT_FILENO) == STDOUT_FILENO,那么STDOUT_FILENO(描述符1)，不再绑定到终端了，绑定到fd上了
 (8)
 void sync(void);	linux系统的守护进程update，周期性（一般是30秒）调用这个函数，来冲洗内核的块缓冲区
 int fsync(int fd);		只对指定的一个文件生效，用于数据库这样的应用程序，需要确保修改过的块立刻写到磁盘上
@@ -226,7 +227,7 @@ if (S_ISCHR(buf.st_mode) || S_ISBLK(buf.st_mode))
 	printf(" (%s) rdev = %d/%d", (S_ISCHR(buf.st_mode)) ? "character" : "block", major(buf.st_rdev), minor(buf.st_rdev));
 }		// st_rdev表示设备号(字符特殊文件、块特殊文件)。用major和minor函数提取主、子设备号
 ---------------------------------------------------------------------------------------------------------
-15.标准IO
+15.标准IO（默认全缓冲）
 (1)流的定向函数（单字节、多字节）
 int fwide(FILE *fp, int mode);
 (2)3种类型的缓冲
@@ -827,6 +828,87 @@ int mprotect(void *addr, size_t len, int prot);			// 可以更改一个现有映
 int msync(void *addr, size_t len, int flags); 			// 类似fsync，但作用于存储映射区
 int munmap(void *addr, size_t len);						// 关闭映射区，但是不会把使映射区的内容写到磁盘文件上
 ------------------------------------------------------------------------------------------------------------------
+25.进程间通信
+(1)管道：半双工（数据只能在一个方向上流动），全双工
+（无命名）管道：只能用于有亲戚关系的进程之间通信
+int pipe(int fd[2])		// 经由参数fd返回两个文件描述符，fd[0]为读打开，fd[1]为写而打开，fd[1]的输出是fd[0]的输入
+先pipe，然后fork，然后结果如下，控制流向，只要父子进程各选一个fd，关闭掉close(fd)即可
+父进程 fd[0]<-管道<-fd[1]   子进程 fd[0]<-同一管道<-fd[1]
+(2)以下两个函数：创建一个管道，fork一个子进程，关闭未使用的管道端
+FILE *popen(const char *cmdstring, const char *type);
+上面函数，执行fork，创建子进程，调用exec执行cmdstring，并且返回一个标准I/O文件指针
+type = "r", fp连接到子进程的标准输出   父进程：fp <- 子进程：stdout
+type = "w", fp连接到子进程的标准输入   父进程：fp -> 子进程：stdin
+int close(FILE *fp);
+(3)协同进程：一个程序即产生输入，又读取输出：注意全缓冲带来的阻塞问题
+(4)命名管道：named pipe或者FIFO
+int mkfifo(const char *path, mode_t mode);
+int mkfifoat(int fd, const char *path, mode_t mode);
+mode参数的类型和open函数mode参数的类型一致
+创建了管道之后，就像一个文件一般，多个进程相互读写，就实现了进程间的通信
+注意：若write一个尚无进程为读打开的FIFO，则产生SIGPIPE信号。
+(5)XSI(System Interface and Headers,Unix标准) 的IPC（消息队列，信号量，共享存储段）
+①IPC标识符和键，对应一个IPC结构
+key_t ftok(const char *path, int id);		// 根据一个路径名和项目ID产生一个键，id低于8位0-255
+键IPC_PRIVATE很特殊，总是用于穿件一个新IPC结构
+②IPC结构关联了，一个权限结构ipc_perm，规定了权限和所有者
+③IPC结构的优缺点
+比如：进程创建了一个消息队列后，进程结束，消息队列依旧存在，系统范围内生效
+比如：IPC结构在文件系统中没有名字，不能修改访问，ls都无法查看，为此新增了系统调用
+(6)消息队列（可用FIFO替代了）
+int msgget(key_t key, int flag);		// 创建一个新队列或者打开一个已有队列，flag为读写操作这些
+msgctl(int msqid, int cmd, struct msqid_ds *buf);
+msqid是msgget函数的返回，即队列的id。
+cmd = IPC_STAT获取到buf中，IPC_SET为buf设置有效（用户、组）id，IPC_RMID删除队列
+msgsnd(int msqid, const void *ptr, size_t nbytes, int flag)				// 将消息添加到队列尾端
+msgrcv(int msqid, const void *ptr, size_t nbytes, int flag)				// 获取队列中的消息
+其中ptr结构如下
+struct mymesg
+{
+	long mtype;
+	char mtext[512];
+}
+nbytes表示mtext[512]中的内容长度
+flag = IPC_NOWAIT，添加消息，读消息，不会阻塞等待
+(7)共享存储段（高地址->低地址：栈，共享存储，堆，未初始化数据，已初始化数据，正文）
+int shmget(key_t key, size_t size, int flag);		// 同msgget但是，可以指定长度
+int shmctl(int shmid, int cmd, struct shmid_ds *buf);	// 类似msgctl
+void *shmat(int shmid, const void *addr, int flag);		// addr通常为空，表示让系统来选择共享内存的地址。at->attach
+int shmdt(const void *addr);						// 删除共享村存储段，addr为shmat的返回	dt->detach
+(8)POSIX信号量
+sem_t *sem_open(const char *name, int oflag, ... /* mode_t mode, unsigned int value */ );
+name为信号量名字，oflag为O_CREAT标志集时，如果name信号量不存在，则创建一个新的
+mode为用户、组读写权限这些，value指定信号量的初始值
+int sem_close(sem_t *sem);			//释放信号量相关的资源
+进程退出会自动关闭打开的信号量，但这不会改变信号量的值，sem_close也不会影响值
+int sem_unlink(const char *name);		// 销毁一个信号量，如果信号量时是打开状态，等到关闭时，会销毁
+信号量使用（调用时，信号量为0，则阻塞）
+int sem_trywait(sem_t *sem);
+int sem_wait(sem_t *sem);
+int sem_timedwait(sem_t *restrict sem, const struct timespec *restrict tsptr);
+信号量释放
+int sem_post(sem_t *sem);
+------------------------------------------------------------------------------------------------------------------
+26.网络IPC：套接字（33）
+
+------------------------------------------------------------------------------------------------------------------
+27.高级进程间通信（37）
+
+------------------------------------------------------------------------------------------------------------------
+28.终端I/O（46）
+
+------------------------------------------------------------------------------------------------------------------
+29.伪终端（23）
+
+------------------------------------------------------------------------------------------------------------------
+30.数据库函数
+DBHANDLE db_open(const char *pathname, int oflag, .../* int mode */);
+void db_close(DBHANDLE db);
+int db_store(DBHANDLE db, const char *key, const char *data, int flag);
+char *db_fetch(DBHANDLE db, const char *key);
+int db_delete(DBHANDLE db, const char *key);
+void db_rewind(DBHANDLE db);
+char *db_nextrec(DBHANDLE db, char *key);
 
 
 
