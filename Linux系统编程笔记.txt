@@ -318,7 +318,7 @@ void setgrent(void);
 struct group *getgrent(void);
 void endgrent(void);
 (4)主机和操作系统相关信息、主机名
-int uname(struct utsname *name);
+int uname(struct utsname *name);		获取当前内核名称和其它信息
 int gethostname(char *name, int namelen);
 (5)时间
 time_t time(time_t *calptr);			距离1970.1.1 00:00:00的秒数
@@ -763,6 +763,7 @@ void closelog(void);
 int setlogmask(int maskpri);
 openlog和closelog都是可选的，如果不调用openlog，在第一次syslog时，会自动调用openlog
 ident一般是程序名称，facility程序类型，系统定义
+/var/log/syslog。日志记录的位置
 (4)如何保证单实例守护进程
 使用文件和记录锁，lockfile(int)，如果锁失败了，就不能运行此守护进程了
 (5)守护进程的惯例
@@ -890,7 +891,67 @@ int sem_timedwait(sem_t *restrict sem, const struct timespec *restrict tsptr);
 int sem_post(sem_t *sem);
 ------------------------------------------------------------------------------------------------------------------
 26.网络IPC：套接字（33）
-
+(1)套接字描述符
+int socket(int domain, int type, int protocal);			// 客户端、服务器端都要调用
+domain=AF_INET（IPv4因特网域）、AF_INET6（IPv6因特网域）、AF_UNIX（UNIX域）、AF_UPSPEC（未指定）
+type=SOCK_DGRAM（固定长度的、无连接的、不可靠的报文传递）、SOCK_RAW（IP协议的数据报接口）
+SOCK_SEQPACKET（固定长度的、有序的、可靠的、面向连接的报文传递）、SOCK_STREAM（有序的、可靠的、双向的、面向连接）
+protocal通常为0，表示为给定的域和套接字类型选择默认协议
+和文件描述符使用类似的接口：close、dup、dup2、select等
+int shutdown(int sockfd, int how);
+// how是SHUT_RD(关闭读端)、how是SHUT_WR(关闭写端)、how是SHUT_RDWR(关闭读写)
+(2)字节序
+处理器字节序、网络字节序
+大端（big-endian）字节序：最大字节地址出现在最低有效字节（Least Significant Byte，LSB）
+小端（little-endian）字节序：最低有效字节包含最小字节地址（Linux是小端字节序的）
+(3)对于TCP/IP应用程序，如下4个程序处理字节序转换
+uint32_t htonl(uint32_t hostint32);			// 主机字节序 转 网络字节序 32位
+uint16_t htons(uint16_t hostint16);			// 主机字节序 转 网络字节序 16位
+uint32_t ntohl(uint32_t netint32);			// 网络字节序 转 主机字节序 32位
+uint16_t ntohs(uint16_t netint16);			// 网络字节序 转 主机字节序 16位
+(4)新型网路地址转化函数inet_pton和inet_ntop
+这两个函数是随IPv6出现的函数，对于IPv4地址和IPv6地址都适用，函数中p和n分别代表表达（presentation)和数值（numeric)。
+地址的表达格式通常是ASCII字符串，数值格式则是存放到套接字地址结构的二进制值。
+int inet_pton(int domain, const char *str, void *addr);     //将点分十进制的ip地址转化为用于网络传输的数值格式
+返回值：若成功则为1，若输入不是有效的表达式则为0，若出错则为-1
+const char* inet_ntop(int domain, const void* addr, char *str, size_t size);  //将数值格式转化为点分十进制的ip地址格式
+返回值：若成功则为指向结构的指针，若出错则为NULL
+注意：domain参数既可以是AF_INET（ipv4）也可以是AF_INET6（ipv6）
+(5)主机名、服务名（需要添加端口配置项）与IP地址的对应
+int getaddrinfo(const char *restrict host, const char *restrict service, 
+				const struct addrinfo *restrict hint, struct addrinfo **restrict res);
+int getnameinfo(const struct sockaddr *restrict addr, socklen_t alen,
+				char *restrict host, socklen_t hostlen,
+				char *restrict service, socklen_t servlen, int flags);
+【Servname not supported for ai_socktype】解决办法
+vim /etc/services，最后一行加入 ruptime 39001/tcp配置，服务的端口号
+【FD_CLOEXEC文描述符的标志】：指定某个文件描述符，在子进程执行exec时，就关闭掉
+(6)套接字与地址关联（服务器端调用）
+int bind(int sockfd, const struct sockaddr *addr, socklen_t len);						// 将套接字绑定到一个地址上
+getsockname(int sockfd, struct sockaddr *restrict addr, socklen_t *restrict alenp);		// 获取绑定到套接字上的地址
+int getpeername(int sockfd, struct sockaddr *restrict addr, socklen_t *restrict alenp);	// 如果和对方连接上，用来找到对方
+(7)请求连接（客户端调用）
+int connect(int sockfd, const struct sockaddr *addr, socklen_t len);
+(8)监听和接受连接请求（服务器调用）
+int listen(int sockfd, int backlog);  //backlog表示，接受请求最多个数
+int accept(int sockfd, struct sockaddr *restrict addr, socklen_t *restrict len);		// 可以阻塞/不阻塞
+// 返回一个sockfd用于和客户端通信，原始sockfd，用来接受其他连接请求
+// addry,len用来填充客户端的地址和地址长度。
+(9)发送函数（类似write和writev）
+ssize_t send(int sockfd, const void *buf, size_t nbytes, int flags);		// 面向连接的数据
+// sendto发送无连接的数据
+ssize_t sendto(int sockfd, const void *buf, size_t nbytes, int flags, const struct sockaddr *destaddr, socklen_t destlen);
+ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags);
+(10)数据接收（类似read和readv）
+ssize_t recv(int sockfd, void *buf, size_t nbytes, int flags);		// 面向连接数据
+ssize_t recvfrom(int sockfd, void *restrict buf, size_t len, int flags,
+				struct sockaddr *restrict addr, socklen_t *restrict addrlen);		// 面向无连接数据
+ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags);
+【发送UDP时，无须connect，accept，直接只要bind，listen，然后sendto，recvfrom】
+(11)套接字选项
+int setsockopt(int sockfd, int level, int option, const void *val, socklen_t len);
+int getsockopt(int sockfd, int level, int option, void *restrict val, socklen_t *restrict lenp);
+setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(int));	其中SO_REUSEADDR指定可以重复绑定一个地址
 ------------------------------------------------------------------------------------------------------------------
 27.高级进程间通信（37）
 
