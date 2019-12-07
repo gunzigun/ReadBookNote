@@ -816,7 +816,7 @@ struct iovec
 (6)读写管道、网络设备、终端时，可能返回值，小于指定需要读写的长度N
 ssize_t readn(int fd, void *buf, size_t nbytes);
 ssize_t writen(int fd, void *buf, size_t nbytes);
-readn和writen的实现只是暗血多次调用read和write，直至读写了n个字节数据
+readn和writen的实现只是按需多次调用read和write，直至读写了n个字节数据
 (7)存储映射I/O
 将文件映射到一块缓冲区上，读缓冲区，相当于读文件，写缓冲区，相当于写文件
 void *mmap(void *addr, size_t len, int prot, int flag, int fd, off_t off);
@@ -890,7 +890,7 @@ int sem_timedwait(sem_t *restrict sem, const struct timespec *restrict tsptr);
 信号量释放
 int sem_post(sem_t *sem);
 ------------------------------------------------------------------------------------------------------------------
-26.网络IPC：套接字（33）
+26.网络IPC：套接字
 (1)套接字描述符
 int socket(int domain, int type, int protocal);			// 客户端、服务器端都要调用
 domain=AF_INET（IPv4因特网域）、AF_INET6（IPv6因特网域）、AF_UNIX（UNIX域）、AF_UPSPEC（未指定）
@@ -928,6 +928,7 @@ vim /etc/services，最后一行加入 ruptime 39001/tcp配置，服务的端口
 【FD_CLOEXEC文描述符的标志】：指定某个文件描述符，在子进程执行exec时，就关闭掉
 (6)套接字与地址关联（服务器端调用）
 int bind(int sockfd, const struct sockaddr *addr, socklen_t len);						// 将套接字绑定到一个地址上
+【注意】bind地址的意义在于，可以提前确定端口号
 getsockname(int sockfd, struct sockaddr *restrict addr, socklen_t *restrict alenp);		// 获取绑定到套接字上的地址
 int getpeername(int sockfd, struct sockaddr *restrict addr, socklen_t *restrict alenp);	// 如果和对方连接上，用来找到对方
 (7)请求连接（客户端调用）
@@ -936,7 +937,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t len);
 int listen(int sockfd, int backlog);  //backlog表示，接受请求最多个数
 int accept(int sockfd, struct sockaddr *restrict addr, socklen_t *restrict len);		// 可以阻塞/不阻塞
 // 返回一个sockfd用于和客户端通信，原始sockfd，用来接受其他连接请求
-// addry,len用来填充客户端的地址和地址长度。
+// addr,len用来填充客户端的地址和地址长度。
 (9)发送函数（类似write和writev）
 ssize_t send(int sockfd, const void *buf, size_t nbytes, int flags);		// 面向连接的数据
 // sendto发送无连接的数据
@@ -953,8 +954,24 @@ int setsockopt(int sockfd, int level, int option, const void *val, socklen_t len
 int getsockopt(int sockfd, int level, int option, void *restrict val, socklen_t *restrict lenp);
 setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(int));	其中SO_REUSEADDR指定可以重复绑定一个地址
 ------------------------------------------------------------------------------------------------------------------
-27.高级进程间通信（37）
-
+27.高级进程间通信
+(1)UNIX域套接字（socket和pipe的结合）
+int socketpair(int domain, int type, int protocol, int sockfd[2]);
+(2)命名域套接字
+使用方式和socket一样，不过bind的地址不是ip，而是目录名，再做类型转换（服务端客户端，都要调用bind，来生成一个socket文件）
+struct sockaddr_un
+{
+	sa_family_t sun_family;		/* AF_UNIX */
+	char sun_path[108];			/* pathname */
+};
+fd = socket(AF_UNIX, SOCK_STREAM, 0);
+struct sockaddr_un un;
+un.sun_family = AF_UNIX;
+strcpy(un.sun_path, "foo.socket");
+size = offsetof(struct sockaddr_un, sun_path) + strlen(un.sun_path);
+// #define offsetof(TYPE,MEMBER) ((int)&((TYPE *)0)->MEMBER) 假定地址从0开始，这样子就可以得到前面部分的长度
+bind(fd, (struct * sockaddr *)&un, size);	// 执行完后会在当前目录生成foo.socket文件，退出程序，不会删除，需要写代码
+bind函数的第三参数是，第二参数整个结构的大小
 ------------------------------------------------------------------------------------------------------------------
 28.终端I/O（46）
 
