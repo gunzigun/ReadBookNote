@@ -991,8 +991,22 @@ speed_t cfgetospeed(const struct termios *termptr);
 int cfsetispeed(struct termios *termptr, speed_t speed);
 int cfsetospeed(struct termios *termptr, speed_t speed);
 ------------------------------------------------------------------------------------------------------------------
-29.伪终端（23）
-
+29.伪终端(PTY)
+int posix_openpt(int pflag);		// 打开一个PTY主设备
+int grandpt(int fd);				// 更改PTY从设备的权限
+int unlockpt(int fd);				// 允许打开一个PTY从设备
+char *ptsname(int fd);				// 返回PTY从设备的名字
+【实现过程：fdm主设备，fds从设备】
+int fdm = posix_openpt(O_RDWR);
+grandpt(fdm);
+unlockpt(fdm);
+char *ptr = ptsname(fdm);
+然后通过fork在子进程中调用，setsid()成为会话首进程
+再 int fds = open(ptr, O_RDWR);  
+让从设备成为进程的输入输出设备
+【伪终端的作用】
+pty slowout > file.out &  后台运行slowout程序，并把结果保存到file.out
+而不影响正常的作业进行
 ------------------------------------------------------------------------------------------------------------------
 30.数据库函数
 DBHANDLE db_open(const char *pathname, int oflag, .../* int mode */);
