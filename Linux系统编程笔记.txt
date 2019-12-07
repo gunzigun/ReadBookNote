@@ -973,8 +973,23 @@ size = offsetof(struct sockaddr_un, sun_path) + strlen(un.sun_path);
 bind(fd, (struct * sockaddr *)&un, size);	// 执行完后会在当前目录生成foo.socket文件，退出程序，不会删除，需要写代码
 bind函数的第三参数是，第二参数整个结构的大小
 ------------------------------------------------------------------------------------------------------------------
-28.终端I/O（46）
-
+28.终端I/O
+(1)终端I/O有两种不同的工作模式
+①规范模式输入处理：对终端输入以行为单位进行处理，对于每个读请求，终端驱动程序最多返回一行
+②非规范式输入处理：输入字符不装配成行,不处理以下字符：
+ERASE删除、KILL擦行、EOF文件结束、NL换行、EOL行结束、EOL2供替换的行结束、CR回车、REPRINT再打印全部输入、
+STATUS状态请求、WERASE向前删除
+(2)在UNIX的术语中，最简单的回答是：
+终端（terminal）=tty=文本的输入输出环境
+控制台（console）=物理终端
+shell=命令行解释器
+int tcgetattr(int fd, struct termios* termptr);						// 获取终端属性，fd不是终端，则返回-1
+int tcsetattr(int fd, int opt, const struct termios* termptr);		// 设置终端属性
+(3)终端的输入输出波特率
+speed_t cfgetispeed(const struct termios *termptr);
+speed_t cfgetospeed(const struct termios *termptr);
+int cfsetispeed(struct termios *termptr, speed_t speed);
+int cfsetospeed(struct termios *termptr, speed_t speed);
 ------------------------------------------------------------------------------------------------------------------
 29.伪终端（23）
 
