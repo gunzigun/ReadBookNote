@@ -1,4 +1,4 @@
-下载: unpv13e.tar.gz
+下载: unpv13e.tar.gz（http://www.unpbook.com/src.html）
 解压: tar xvf unpv13e.tar.gz
 进入到unpv13e目录
 ./lib/unp.h 中#include "../config.h"改成#include "config-unp.h"
@@ -13,3 +13,7 @@ cp ./lib/addrinfo-unp.h /usr/include/
 cp ./libapue.a /usr/local/lib/
 编译时链接到相应库: gcc -o 1-1 1-1.c -l unp
 
+1.简介
+(1)编写协议无关的程序
+socket(AF_INET/AF_INET6, SOCK_STREAM, 0);
+使用getaddrinfo函数获取相关的地址和协议信息

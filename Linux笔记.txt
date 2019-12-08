@@ -199,3 +199,8 @@ ipcs -l    显示系统关于 ipcs的限制
 
 12.
 stty -a    显示终端的所有选项
+
+13.
+netstat -ni		检查网口
+ifconfig eth0 	查看某网口的信息	
+netstat -nr		检查路由

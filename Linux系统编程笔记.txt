@@ -918,6 +918,7 @@ const char* inet_ntop(int domain, const void* addr, char *str, size_t size);  //
 返回值：若成功则为指向结构的指针，若出错则为NULL
 注意：domain参数既可以是AF_INET（ipv4）也可以是AF_INET6（ipv6）
 (5)主机名、服务名（需要添加端口配置项）与IP地址的对应
+sockaddr父类，子类有sockaddr_in和sockaddr_out
 int getaddrinfo(const char *restrict host, const char *restrict service, 
 				const struct addrinfo *restrict hint, struct addrinfo **restrict res);
 int getnameinfo(const struct sockaddr *restrict addr, socklen_t alen,
