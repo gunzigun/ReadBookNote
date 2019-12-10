@@ -171,3 +171,42 @@ const char* inet_ntop(int domain, const void* addr, char *str, size_t size);  //
 注意：domain参数既可以是AF_INET（ipv4）也可以是AF_INET6（ipv6）
 注意：所以以上两个函数，协议相关，为使协议不相关，可以自己定义一个函数
 -------------------------------------------------------------------------------------------------------------
+4.基本TCP套接字编程
+服务器：socket(),bind(),listen(),accept(),一直阻塞到客户连接到达
+客户端：socket(),bind()--可以不用,connect(),一直阻塞到与服务器连接成功
+每次connect失败后，都必须调用close，关闭当前的套接字描述符，并重新调用socket
+(1)int socket(int domain, int type, int protocal);			// 客户端、服务器端都要调用
+domain=AF_INET（IPv4因特网域）、AF_INET6（IPv6因特网域）、AF_UNIX（UNIX域）、AF_UPSPEC（未指定）
+type=SOCK_DGRAM（固定长度的、无连接的、不可靠的报文传递）、SOCK_RAW（IP协议的数据报接口）
+SOCK_SEQPACKET（固定长度的、有序的、可靠的、面向连接的报文传递）、SOCK_STREAM（有序的、可靠的、双向的、面向连接）
+protocal通常为0，表示为给定的域和套接字类型选择默认协议（IPPROTO_CP、IPPROTO_UDP、IPPROTO_SCTP）
+(2)int bind(int sockfd, const struct sockaddr *addr, socklen_t len);				// 将套接字绑定到一个地址上
+bind是可选的，将地址:端口绑定到sockfd，不调用者，则系统分配。
+通配地址（IPv4）：
+struct sockaddr_in	servaddr;
+servaddr.sin_addr.s_addr = htonl(INADDR_ANY);		// INADDR_ANY即0值
+通配地址（IPv6）：
+struct sockaddr_in6	servaddr;
+servaddr.sin6_addr = in6addr_any;		// in6addr_any 为 in6_addr类型的对象，被初始化成INADDR_ANY
+(3)int listen(int sockfd, int backlog);  //backlog表示，内核应该为相应套接字排队的最大连接个数
+backlog个队列分成两个部分
+①未完成连接队列：已由某个客户发出，并到达服务器，而服务器正在等待完成相应的TCP三路握手过程，这些套接字处于SYN_RCVD
+②已完成连接队列：已完成TCP三路握手过程，这些套接字处于ESTABLISHED
+不要通过将backlog设置为0的方式，来阻止客户端连接，通过直接关掉套接字的方式来阻止
+(4)int accept(int sockfd, struct sockaddr *restrict addr, socklen_t *restrict len);		// 可以阻塞/不阻塞
+// 返回一个sockfd用于和客户端通信(已连接套接字)，原始sockfd，用来接受其他连接请求（监听套接字）
+// addr,len用来填充客户端的地址和地址长度。不感兴趣，置为NULL就行了
+(5)请求连接（客户端调用）
+int connect(int sockfd, const struct sockaddr *addr, socklen_t len);
+(6)int close(int sockfd);			// 关闭套接字
+(7)在并发的情况，父进程可以调用close，让子进程处理，若要强制关闭，发送FIN信号，则调用shutdown()
+(8)
+int getsockname(int sockfd, struct sockaddr *restrict addr, socklen_t *restrict alenp);	
+// 在一个没有bind的TCP客户端上，connect返回后，可以查看本地连接的IP地址和端口
+// 在以端口号0调用bind的客户端上，查看内核赋予的端口号
+// 获取套接字地址族
+// 总之就是bind为指明时，查看内核绑定到哪里去了，IP或端口
+int getpeername(int sockfd, struct sockaddr *restrict addr, socklen_t *restrict alenp);
+// 当一个服务器是由调用accept的某个进程通过调用exec执行程序时，它能获取客户身份的唯一途径
+// 当然可以做一个参数，传递到exec中，然后exec执行程序中，可以知道其客户信息，但不是那么好
+---------------------------------------------------------------------------------------------------------------

@@ -896,7 +896,7 @@ int socket(int domain, int type, int protocal);			// 客户端、服务器端都
 domain=AF_INET（IPv4因特网域）、AF_INET6（IPv6因特网域）、AF_UNIX（UNIX域）、AF_UPSPEC（未指定）
 type=SOCK_DGRAM（固定长度的、无连接的、不可靠的报文传递）、SOCK_RAW（IP协议的数据报接口）
 SOCK_SEQPACKET（固定长度的、有序的、可靠的、面向连接的报文传递）、SOCK_STREAM（有序的、可靠的、双向的、面向连接）
-protocal通常为0，表示为给定的域和套接字类型选择默认协议
+protocal通常为0，表示为给定的域和套接字类型选择默认协议（IPPROTO_CP、IPPROTO_UDP、IPPROTO_SCTP）
 和文件描述符使用类似的接口：close、dup、dup2、select等
 int shutdown(int sockfd, int how);
 // how是SHUT_RD(关闭读端)、how是SHUT_WR(关闭写端)、how是SHUT_RDWR(关闭读写)
