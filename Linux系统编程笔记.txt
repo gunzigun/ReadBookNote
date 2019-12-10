@@ -901,9 +901,11 @@ protocal通常为0，表示为给定的域和套接字类型选择默认协议
 int shutdown(int sockfd, int how);
 // how是SHUT_RD(关闭读端)、how是SHUT_WR(关闭写端)、how是SHUT_RDWR(关闭读写)
 (2)字节序
-处理器字节序、网络字节序
+处理器字节序（一般小端的）、网络字节序（一般大端的）
 大端（big-endian）字节序：最大字节地址出现在最低有效字节（Least Significant Byte，LSB）
 小端（little-endian）字节序：最低有效字节包含最小字节地址（Linux是小端字节序的）
+大端字节序是指一个整数的高位字节（32-31bit）存储在内存的低地址处，低位字节（0-7bit）存储在内存的高地址处。
+小端字节序是指一个整数的高位字节（32-31bit）存储在内存的高地址处，低位字节（0-7bit）存储在内存的低地址处
 (3)对于TCP/IP应用程序，如下4个程序处理字节序转换
 uint32_t htonl(uint32_t hostint32);			// 主机字节序 转 网络字节序 32位
 uint16_t htons(uint16_t hostint16);			// 主机字节序 转 网络字节序 16位

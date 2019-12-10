@@ -73,5 +73,101 @@ MSL是任何IP数据包能在因特网中存在的最长时间
 (9)UDP首部8字节、TCP首部20字节，IPv4首部是20字节，IPv6首部40字节
 IPv4数据报的最大大小65535（MTU），总长度字段16位
 IPv5数据报的最大大小65575（MTU），净长度字段16位，65535+40=65575
-
-
+----------------------------------------------------------------------------------------------------------------
+3.套接字编程简介
+(1)IPv4套接字地址结构
+struct in_addr
+{
+	// in_addr_t 为 uint32_t，32位无符号整数
+	in_addr_t s_addr;			/* 32-bit IPv4 address, network byte order */	
+};
+// 以上定义有历史原因，因为之前in_addr为多种结构的联合union，后面去除了
+struct sockaddr_in
+{
+	uint8_t			sin_len;		/* length of structure (16) 无符号的8位整数 */
+	// sa_family_t 为 uint8_t，8位无符号整数
+	sa_family_t 	sin_family;		/* AF_INET 必须 */
+	// in_port_t 为 uint16_t，16位无符号整数
+	in_port_t		sin_port;		/* 16-bit TCP or UDP port number, network byte order 必须 */
+	struct in_addr 	sin_addr;		/* 32-bit IPv4 address, network byte order 必须 */
+	char 			sin_zero[8];	/* unused */
+};
+// socklen_t 为 uint32_t，32位无符号整数
+(2)通用的套接字地址结构
+struct sockaddr
+{
+	unit8_t 		sa_len;
+	sa_family_t		sa_family;		/* address family: AF_xxx value */
+	char 			sa_data[14];	/* protocol-specific address */
+};
+公用父类，这样便于bind函数泛化，int bind(int, struct sockaddr *, socklen_t);
+(3)IPv6套接字地址结构
+struct in6_addr
+{
+	uint8_t		s6_addr[16];		/* 128-bit IPv6 address, network byte ordered*/
+};
+#define SIN6_LEN		/* required for compile-time tests */
+struct sockaddr_in6
+{
+	uint8_t 		sin6_len;		/* length of this struct (28) */
+	sa_family_t		sin6_family;	/* AF_INET6 */
+	in_port_t		sin6_port;		/* transport layer port, network byte order */
+	uint32_t		sin6_flowinfo;  /* flow information, undefined */
+	struct in6_addr sin6_addr;		/* IPv6 address, network byte order */
+	uint32_t 		sin6_scope_id;	/* set of interfaces for a scope */
+};
+// 此结构中字段的先后顺序做过编排，使得其结构是64位对齐的。对64位机器做了兼容处理
+(4)新的通用套接字地址结构
+克服了sockaddr的缺点，足以容纳系统所支持的任何套接字地址结构
+struct sockaddr_storage
+{
+	uint8 			ss_len;			/* length of this struct (implementation dependent) */
+	sa_family_t 	ss_family;		/* address family: AF_xxx value */	
+};
+与sockaddr相比，有以下两点差别
+①如果系统支持的任何套接字地址结构有对齐需要，那么sockaddr_storage能够满足最苛刻的对齐要求
+②sockaddr_storage足够大，能够容纳系统支持的任何套接字地址结构
+(5)UNIX域套接字
+struct sockaddr_un
+{
+	uint8_t			sun_len;
+	sa_family_t 	sun_family;		/* AF_UNIX */
+	char 			sun_path[108];	/* pathname */
+};
+fd = socket(AF_UNIX, SOCK_STREAM, 0);
+struct sockaddr_un un;
+un.sun_family = AF_UNIX;
+strcpy(un.sun_path, "foo.socket");
+size = offsetof(struct sockaddr_un, sun_path) + strlen(un.sun_path);
+// #define offsetof(TYPE,MEMBER) ((int)&((TYPE *)0)->MEMBER) 假定地址从0开始，这样子就可以得到前面部分的长度
+bind(fd, (struct * sockaddr *)&un, size);	// 执行完后会在当前目录生成foo.socket文件，退出程序，不会删除，需要写代码
+bind函数的第三参数是，第二参数整个结构的大小
+(6)值-结果参数
+从进程到内核传递套接字地址结构的函数：bind、connect、sendto
+从内核到进程传递套接字地址结构的函数：accept、recvfrom、getsockname、getpeername
+(7)字节序转换
+uint32_t htonl(uint32_t hostint32);			// 主机字节序 转 网络字节序 32位
+uint16_t htons(uint16_t hostint16);			// 主机字节序 转 网络字节序 16位
+uint32_t ntohl(uint32_t netint32);			// 网络字节序 转 主机字节序 32位
+uint16_t ntohs(uint16_t netint16);			// 网络字节序 转 主机字节序 16位
+(8)字节操纵函数
+void bzero(void *dest, size_t nbytes);
+void bcopy(const void *src, void *dest, size_t nbytes);
+int bcmp(const void *ptr1, const void *ptr2, size_t nbytes);
+void *memset(void *dest, int c, size_t len);
+void *memcpy(void *dest, const void *src, size_t nbytes);
+int memcmp(const void *ptr1, const void *ptr2, size_t nbytes);
+(9)地址转换函数
+int inet_aton(const char *strptr, struct in_addr *addrptr);		// 将点分十进制数据地址转换成网络字节序地址
+in_addr_t inet_addr(const char *strptr);						// 同上，但是不能表征255.255.255.255，已废弃
+char* inet_ntoa(struct in_addr inaddr);							// 将网络字节序地址转换成点分十进制数据地址
+// 以上函数只适用于IPv4
+随IPv6出现的函数，对于IPv4地址和IPv6地址都适用，函数中p和n分别代表表达（presentation)和数值（numeric)。
+地址的表达格式通常是ASCII字符串，数值格式则是存放到套接字地址结构的二进制值。
+int inet_pton(int domain, const char *str, void *addr);     //将点分十进制的ip地址转化为用于网络传输的数值格式
+返回值：若成功则为1，若输入不是有效的表达式则为0，若出错则为-1
+const char* inet_ntop(int domain, const void* addr, char *str, size_t size);  //将数值格式转化为点分十进制的ip地址格式
+返回值：若成功则为指向结构的指针，若出错则为NULL
+注意：domain参数既可以是AF_INET（ipv4）也可以是AF_INET6（ipv6）
+注意：所以以上两个函数，协议相关，为使协议不相关，可以自己定义一个函数
+-------------------------------------------------------------------------------------------------------------
