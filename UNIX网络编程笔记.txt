@@ -38,6 +38,7 @@ DLPI：提供对于数据链路层的访问能力
 客户端告知服务器，应答已收到ACK-K+1，accept返回，read（阻塞）
 (4)TCP（SYN）选项
 MSS选项：告诉对端，最大分节大小
+MTU(Maximum Transmit Unit):加了消息头，MSS(Maximum Segment Size):数据部分，不加消息头
 窗口规模选项：告诉对端，最大窗口是65535，16位
 *****
 【TCP的滑动窗口机制】基本的数据单位不是数据段，而是字节
@@ -244,7 +245,7 @@ c.该套接字是一个监听套接字且已完成的连接数不为0，其accpe
 d.其上有一个套接字错误待处理
 【如何判定套接字描述符就绪？（写就绪）】
 a.套接字的发送缓冲>=缓冲的低水位标记，或者已连接，或不需连接，通过SO_SNDLOWAT设置套接字选项，TCP，UDP套接字默认设置为2048
-b.该连接的写半步关闭，对齐写，会产生SIGPIPE信号
+b.该连接的写半步关闭，对其写，会产生SIGPIPE信号
 c.使用非阻塞式connect的套接字已建立连接，或者connect已经以失败告终
 d.其上有一个套接字错误待处理
 【如何判定套接字描述符就绪？（异常就绪）】
@@ -260,7 +261,7 @@ int pselect(int maxfdpl, fd_set *restrict readfds, fd_set *restrict writefds, fd
 (5)int shutdown(int sockfd, int how);
 // how是SHUT_RD(关闭读端)、how是SHUT_WR(关闭写端)、how是SHUT_RDWR(关闭读写)
 SHUT_RD(关闭读端):套接字不在有数据可接收，并且接受缓冲区的数据被丢弃
-how是SHUT_WR(关闭写端):当前套接字发送缓冲区的数据被发送掉，套接字不在能有数据写入
+how是SHUT_WR(关闭写端):当前套接字发送缓冲区的数据被发送掉，套接字不再能有数据写入
 how是SHUT_RDWR(关闭读写):前面两个选项各执行一次，与调用这个选项等同
 (6)int poll(struct pollfd *fdarray, unsigned long nfds, int timeout);
 // 返回值表示就绪的描述符数目，这是一个毫秒级的函数
@@ -276,4 +277,64 @@ POLLIN(普通或优先级带数据可读)、POLLRDNORM(普通数据可读)、POL
 POLLOUT(普通数据可写)、POLLWRNORM(普通数据可写)、POLLWRBAND(优先级带数据可写)
 revents：
 POLLERR(发生错误)、POLLHUP(发生挂起)、POLLNVAL(描述符不是一个打开的文件)
-
+--------------------------------------------------------------------------------------------------------
+7.套接字选项
+int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen);
+int getsockopt(int sockfd, int level, int optname, void *restrict optval, socklen_t *restrict optlenp);
+粗分两大基本类型：
+启用或禁止某个特性的二元选项（标志选项）
+取得并返回我们可以设置或检查的特定值的选项（值选项）
+level：SOL_SOCKET、IPPROTO_IP、IPPROTO_ICMPV6、IPPROTO_IPV6、IPPROTO_TCP、IPPROTO_SCTP
+当为标志性选项时，*optval是一个整数，为0表示禁止，不为零表示启用
+(1)通用套接字选项(协议无关)
+SO_BROADCAST（optval=int）：开启或禁止进程发送广播消息
+SO_DEBUG（optval=int）：开启时，内核将为TCP在该套接字发送和接收所有分组保留详细跟踪信息，可用trpt程序检查
+SO_DONTROUTE（optval=int）：本选项规定外出的分组将绕过底层协议的正常路由机制。能否通过网关转发
+SO_ERROR（optval=int）：保存套接字的错误信息，select返回，SIGIO驱动
+SO_KEEPALIVE（optval=int）：设置保活后，2小时没有数据交换，就给对端发送，保持存活探测分节
+对端响应ACK：对方还在，一切正常，只是没法数据而已，然后2小时后再发
+对端响应RST：说明对端崩溃，已重新启动。该套接字的待处理错误设置为ECONNRESET，套接字本身责则被关闭
+无响应：对方不在了，超时ETIMEOUT，不可达EHOSTUNREACH，关闭套接字
+SO_LINGER（optval=linger{}）：指定close()对于面向连接协议（TCP）如何操作
+默认是立即返回，设置后，如果还有数据残留，发送完后，再返会终止
+struct linger
+{
+	int l_onoff;	/* 0=off, nonzero=on */
+	int l_linger;	/* linger time, second */
+};
+如果l_linger时间到了，还没发送完，那么close返回时，会返回EWOULDBLOCK错误
+如果设置为on，l_linger=0，那么将不存在TIME_WAIT状态
+SO_OOBINLINE（optval=int）：开启时，带外数据将被留在正常的输入队列中
+SO_RCVBUF和SO_SNDBUF（optval=int）：发送、接收缓冲区的大小，TCP连接套接字的本项从监听套接字继承而来
+SO_RCVLOWAT和SO_SNDLOWAT（optval=int）：配合shutdown使用，见6.(5)
+SO_RCVTIMEO和SO_SNDTIMEO（optval=timeval{}）：给套接字的接收和发送设置一个超时值，设置为0时，禁止超时
+SO_REUSEADDR（optval=int）:当然TCP桌面设置都是不允许的
+正常重复bind会失败，而设置之后，多个服务都可以bind到一个地址:端口上
+这样也允许一个端口上，启动同一服务的多个实例，给每个实例绑定一个IP地址即可
+SO_REUSEADDR（optval=int）：允许单个进程捆绑同一个端口到多个套接字上
+SO_TYPE（optval=int）：返回诸如：SOCK_STREAM、SOCK_DGRAM之类的值
+(2)IPv4套接字选项（level=IPPROTO_IP）
+IP_HDRINCL：自定义IP首部
+IP_OPTIONS：允许在IP首部设置IP选项
+IP_RECVDSTADDR和IP_RECVIF：导致所收到的UDP数据报的目的【IP地址、接收接口】由recvmsg函数作为辅助数据返回
+IP_TTL：消息在网络中的存活时间
+(3)ICMPV6套接字选项（level=IPPROTO_ICMPV6）
+ICMP6_FILTER：指定哪些ICMPv6消息能被投递给进程
+(4)IPv6套接字选项（level=IPPROTO_IPV6）
+IPV6_DONTFRAG：开启之后，将禁止为UDP套接字或原始套接字自动插入分片首部，分组中超过发送接口MTU的那些分组将被丢弃
+IPV6_NEXTHOP：将外出数据报的下一跳地址指定为一个套接字地址结构
+IPV6_PATHMTU：不能设置，只能获取，返回值为当前的 MTU
+IPV6_UNICAST_HOPS：类似于IPv4的IP_TTL
+IPV6_V6ONLY：开启时，只执行IPv6通信
+IPV6_RECVXXXX：把某些数据，作为recvmsg的辅助数据返回
+(5)TCP套接字选项（level=IPPROTO_TCP）
+TCP_MAXSEG：允许我们获取或设置TCP连接的最大分节大小（MSS）
+TCP_NODELAY：开启后将禁止TCP的Nagle算法，默认是启动的
+【Nagle算法】：旨在减少广域网上的小分组数目，尽可能筹齐MSS再发送
+可以通过writev或者缓冲的方式，尽量不使用TCP_NODELAY
+(6)fcntl函数的套接字相关
+设置套接字为非阻塞式I/O型：F_SETFL，O_NONBLOCK
+设置套接字为信号驱动式I/O型：F_SETFL，O_ASYNC
+设置套接字属主：F_SETOWN，允许我们指定接收SIGIO和SIGURG信号的套接字属主（进程ID或进程组ID）
+获取套接字属主：F_GETOWN
+---------------------------------------------------------------------------------------------------------------
