@@ -204,3 +204,4 @@ stty -a    显示终端的所有选项
 netstat -ni		检查网口
 ifconfig eth0 	查看某网口的信息	
 netstat -nr		检查路由
+netstat -a		查看本机连接信息
