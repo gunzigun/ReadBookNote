@@ -210,3 +210,70 @@ int getpeername(int sockfd, struct sockaddr *restrict addr, socklen_t *restrict 
 // 当一个服务器是由调用accept的某个进程通过调用exec执行程序时，它能获取客户身份的唯一途径
 // 当然可以做一个参数，传递到exec中，然后exec执行程序中，可以知道其客户信息，但不是那么好
 ---------------------------------------------------------------------------------------------------------------
+5.TCP案例，略
+6.I/O复用，select和poll函数
+(1)I/O复用的场合
+当客户处理多个描述符（通常是交互式输入和网络套接字）
+一个客户同时处理多个套接字
+一个TCP服务器既要处理监听套接字，又要处理已连接套接字
+一个服务器既要处理TCP，又要处理UDP
+一个服务器要处理多个服务或多个协议
+(2)Unix下可用的5种I/O模型
+①阻塞式I/O ②非阻塞式I/O （轮询polling）
+③I/O复用（select和poll）
+阻塞在select和poll这两个系统调用上，而不是阻塞在系统I/O上
+这两个调用返回，有设备就绪后，再去操作I/O进行输入输出
+【优势】可以同时等待多个描述符就绪
+④信号驱动式I/O（内核在描述符就绪是，发送SIGIO信号） ⑤异步I/O
+(3)
+int select(int maxfdpl, fd_set *restrict readfds, fd_set *restrict writefds, fd_set *restrict exceptfds,
+			struct timeval *restrict timeout);
+timeout == NULL 永远等待，直到有一个描述符做好准备，返回准备好的数量，否则，返回-1，erron设置为EINTER
+timeout->tv_sec和timeout->tv_usec都为0，根本不等待，直接看一下有没有准备好的fd，不断进行轮询（polling）
+timeout->tv_sec和timeout->tv_usec不都为0，跟第一种情况一样，不过只等待指定时间，时间到了返回0
+int FD_ISSET(int fd, fd_set *fdset);		// select返回后，判断描述符是否就绪
+int FD_CLR(int fd, fd_set *fdset);			/* turn off the bit for fd in fdset */
+int FD_SET(int fd, fd_set *fdset);			/* turn on the bit for fd in fdset */ select之前要先调用一次
+int FD_ZERO(fd_set *fdset);					/* clear all bits in fdset*/
+maxfdpl是检查的最大描述符个数，[0,maxfdpl-1]
+【妙用】如果三个fd_set都设置成null，则有了一个比sleep函数精确度更高的定时器
+【如何判定套接字描述符就绪？（读就绪）】
+a.套接字的接收缓冲>=缓冲的低水位标记，可以通过SO_RCVLOWAT设置套接字选项，TCP，UDP套接字默认设置为1
+b.该连接的读半步关闭（接受了FIN的TCP连接），对这样的套接字读不阻塞，返回0
+c.该套接字是一个监听套接字且已完成的连接数不为0，其accpet一般不会阻塞
+d.其上有一个套接字错误待处理
+【如何判定套接字描述符就绪？（写就绪）】
+a.套接字的发送缓冲>=缓冲的低水位标记，或者已连接，或不需连接，通过SO_SNDLOWAT设置套接字选项，TCP，UDP套接字默认设置为2048
+b.该连接的写半步关闭，对齐写，会产生SIGPIPE信号
+c.使用非阻塞式connect的套接字已建立连接，或者connect已经以失败告终
+d.其上有一个套接字错误待处理
+【如何判定套接字描述符就绪？（异常就绪）】
+a.一个套接字存在带外数据或仍处于带外标记
+(4)
+int pselect(int maxfdpl, fd_set *restrict readfds, fd_set *restrict writefds, fd_set *restrict exceptfds,
+			const struct timespec *restrict tsptr,
+			const sigset_t *restrict sigmask);
+//更加精确的实现
+【与select的区别】：
+①timespec第二成员是纳秒，timeval第二成员是微秒
+②select可能因为信号被永远阻塞，最后的参数，表明，先将信号屏蔽字设置为sigmask，等pselect返回后，再设回原来的
+(5)int shutdown(int sockfd, int how);
+// how是SHUT_RD(关闭读端)、how是SHUT_WR(关闭写端)、how是SHUT_RDWR(关闭读写)
+SHUT_RD(关闭读端):套接字不在有数据可接收，并且接受缓冲区的数据被丢弃
+how是SHUT_WR(关闭写端):当前套接字发送缓冲区的数据被发送掉，套接字不在能有数据写入
+how是SHUT_RDWR(关闭读写):前面两个选项各执行一次，与调用这个选项等同
+(6)int poll(struct pollfd *fdarray, unsigned long nfds, int timeout);
+// 返回值表示就绪的描述符数目，这是一个毫秒级的函数
+struct pollfd
+{
+	int fd;				/* descriptor to check */
+	short events; 		/* events of interset on fd */
+	short revents;		/* events that occurred on fd */
+};
+poll识别三类数据：普通normal，优先级带priority band，高优先级high priority
+events、revents:
+POLLIN(普通或优先级带数据可读)、POLLRDNORM(普通数据可读)、POLLRDBAND(优先级带数据可读)、POLLPRI(高优先级数据可读)
+POLLOUT(普通数据可写)、POLLWRNORM(普通数据可写)、POLLWRBAND(优先级带数据可写)
+revents：
+POLLERR(发生错误)、POLLHUP(发生挂起)、POLLNVAL(描述符不是一个打开的文件)
+
