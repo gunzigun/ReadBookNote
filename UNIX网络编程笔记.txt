@@ -308,7 +308,7 @@ SO_OOBINLINE（optval=int）：开启时，带外数据将被留在正常的输�
 SO_RCVBUF和SO_SNDBUF（optval=int）：发送、接收缓冲区的大小，TCP连接套接字的本项从监听套接字继承而来
 SO_RCVLOWAT和SO_SNDLOWAT（optval=int）：配合shutdown使用，见6.(5)
 SO_RCVTIMEO和SO_SNDTIMEO（optval=timeval{}）：给套接字的接收和发送设置一个超时值，设置为0时，禁止超时
-SO_REUSEADDR（optval=int）:当然一般TCP怎么设置都是不允许的，一个地址：端口，可以绑定在多个socket上
+SO_REUSEADDR（optval=int）:一个地址：端口，可以绑定在多个socket上
 正常重复bind会失败，而设置之后，多个服务都可以bind到一个地址:端口上
 这样也允许一个端口上，启动同一服务的多个实例，给每个实例绑定一个IP地址即可
 SO_REUSEPORT（optval=int）：允许单个进程捆绑同一个端口到多个套接字上
