@@ -941,12 +941,12 @@ int listen(int sockfd, int backlog);  //backlog表示，接受请求最多个数
 int accept(int sockfd, struct sockaddr *restrict addr, socklen_t *restrict len);		// 可以阻塞/不阻塞
 // 返回一个sockfd用于和客户端通信，原始sockfd，用来接受其他连接请求
 // addr,len用来填充客户端的地址和地址长度。
-(9)发送函数（类似write和writev）
+(9)发送函数（类似write和writev），flags一般设置为0
 ssize_t send(int sockfd, const void *buf, size_t nbytes, int flags);		// 面向连接的数据
 // sendto发送无连接的数据
 ssize_t sendto(int sockfd, const void *buf, size_t nbytes, int flags, const struct sockaddr *destaddr, socklen_t destlen);
 ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags);
-(10)数据接收（类似read和readv）
+(10)数据接收（类似read和readv），flags一般设置为0
 ssize_t recv(int sockfd, void *buf, size_t nbytes, int flags);		// 面向连接数据
 ssize_t recvfrom(int sockfd, void *restrict buf, size_t len, int flags,
 				struct sockaddr *restrict addr, socklen_t *restrict addrlen);		// 面向无连接数据

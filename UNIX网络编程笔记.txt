@@ -308,10 +308,10 @@ SO_OOBINLINE（optval=int）：开启时，带外数据将被留在正常的输�
 SO_RCVBUF和SO_SNDBUF（optval=int）：发送、接收缓冲区的大小，TCP连接套接字的本项从监听套接字继承而来
 SO_RCVLOWAT和SO_SNDLOWAT（optval=int）：配合shutdown使用，见6.(5)
 SO_RCVTIMEO和SO_SNDTIMEO（optval=timeval{}）：给套接字的接收和发送设置一个超时值，设置为0时，禁止超时
-SO_REUSEADDR（optval=int）:当然TCP桌面设置都是不允许的
+SO_REUSEADDR（optval=int）:当然一般TCP怎么设置都是不允许的，一个地址：端口，可以绑定在多个socket上
 正常重复bind会失败，而设置之后，多个服务都可以bind到一个地址:端口上
 这样也允许一个端口上，启动同一服务的多个实例，给每个实例绑定一个IP地址即可
-SO_REUSEADDR（optval=int）：允许单个进程捆绑同一个端口到多个套接字上
+SO_REUSEPORT（optval=int）：允许单个进程捆绑同一个端口到多个套接字上
 SO_TYPE（optval=int）：返回诸如：SOCK_STREAM、SOCK_DGRAM之类的值
 (2)IPv4套接字选项（level=IPPROTO_IP）
 IP_HDRINCL：自定义IP首部
@@ -338,3 +338,24 @@ TCP_NODELAY：开启后将禁止TCP的Nagle算法，默认是启动的
 设置套接字属主：F_SETOWN，允许我们指定接收SIGIO和SIGURG信号的套接字属主（进程ID或进程组ID）
 获取套接字属主：F_GETOWN
 ---------------------------------------------------------------------------------------------------------------
+8.基本UDP套接字编程
+(1)数据的发送和接收
+ssize_t sendto(int sockfd, const void *buf, size_t nbytes, int flags, const struct sockaddr *destaddr, socklen_t destlen);
+ssize_t recvfrom(int sockfd, void *restrict buf, size_t nbytes(lenth-buf数组长度), int flags,
+				struct sockaddr *restrict addr, socklen_t *restrict addrlen);
+前面三个参数和write、read函数一样
+其中destlen是一个int，destaddr是一个const指针，在内部不会改变，addr和addrlen都是指针，是值-结果类型
+(2)一般来说，大多数TCP服务是并发的，大多数UDP服务是迭代的
+(3)UDP客户端发送消息时，服务器未打开，sendto返回的没有ICMP协议中不可达的地址和端口信息
+【解决办法】：仅在进程已将UDP套接字连接到恰恰一个对端时，该异步错误返回给进程
+(4)UDP的connect函数
+UDP套接字调用connect，内核只是检查是否存在立即可知的错误，connect之后发生了3个变化
+①我们再也不能给输出操作指定目的IP地址和端口号，不能使用sendto，只能使用write或者send了
+②不必使用recvfrom以获悉数据报的发送者，改用read，recv，recvmsg，限制该connect了的套接字只能与一个对端交换数据
+③由已连接UDP套接字引发的异步错误会返回给其所在的进程
+【所以，UDP进程只有确定与唯一对端进行通信时，才connect】
+在一个已经connect的UDP套接字上，再次调用connect
+①重新指定对端，不同于TCP套接字，connect只能条调用一次
+②断开一个已连接的UDP套接字，connect时，把套接字地址结构的地址族成员（sin_family/sin6_family）设置为AF_UNSPEC
+
+

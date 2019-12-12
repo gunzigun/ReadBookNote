@@ -205,3 +205,5 @@ netstat -ni		检查网口
 ifconfig eth0 	查看某网口的信息	
 netstat -nr		检查路由
 netstat -a		查看本机连接信息
+host www.baidu.com	查看网址的IP地址
+netstat -s -p udp	查看数据报接收情况
