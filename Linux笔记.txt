@@ -113,6 +113,7 @@ df -h			//disk free
 du -h [目录名]  //disk usage
 
 进程信息
+ps -ef
 ps auxjef 	// a所有用户的进程 u详细信息 x显示没有控制终端的进程 j显示与作业有关的信息 -e 显示所有进程 -f 全格式
 ps -o pid,ppid,pgid,sid,tpgid,comm		// -o表示显示的选项
 top 

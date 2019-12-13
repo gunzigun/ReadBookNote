@@ -1,0 +1,10 @@
+make之前，chmod 777 mkreleasehdr.sh，会生成下列文件
+redis-benchmark		// 性能测试工具
+redis-check-aof		// AOF文件修复工具
+redis-check-rdb		// RDB文件检查工具（快照持久化文件）
+redis-cli			// 命令行客户端
+redis-server		// redis服务器启动命令
+
+./redis-server ***.conf				指定配置打开一个redis服务
+./redis-server --port 6666 			指定端口号打开一个redis服务
+./redis-cli -h 主机IP -p 端口号		连接指定的redis服务器
