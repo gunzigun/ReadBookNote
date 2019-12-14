@@ -8,3 +8,127 @@ redis-server		// redis服务器启动命令
 ./redis-server ***.conf				指定配置打开一个redis服务
 ./redis-server --port 6666 			指定端口号打开一个redis服务
 ./redis-cli -h 主机IP -p 端口号		连接指定的redis服务器
+
+第一部分、数据结构与对象
+(1)简单动态字符串
+redis自己构建了一种名为简单动态字符串SDS的抽象类型，key就是这种类型
+SET msg "hello world" : key是一个保存着"msg"的SDS对象，value是一个保存着"hello world"的SDS对象
+RPUSH fruits "apple" "banana" "cherry" : key是一个保存着"fruits"的SDS对象，value保存着一个列表对象，内含三个SDS
+此外，SDS还用做AOF中的缓冲区
+struct sdshdr {
+    int len;	 // buf 中已占用空间的长度，不包括'\0'
+    int free;    // buf 中剩余可用空间的长度
+    char buf[];  // 数据空间（字节数组，是二进制数据，不由'\0'来判断结束）
+};
+1.该结构的优点：
+获取字符串长度O(1),而C数组获取字符串长度O(N)
+字符串操作前，只要检测free和lenth就知道，缓冲区是否足够，这样子可以避免缓冲区溢出
+由于free区的存在，整个SDS，不用反复的对数组空间进行分配、释放
+内存的扩充策略：小于SDS_MAX_PREALLOC (1024*1024)，则翻倍+1，需要长度加上SDS_MAX_PREALLOC+1，+1是给"\0"的
+惰性空间释放策略：因为字符串缩减后，保留着，用free记录
+(2)链表
+1.LLEN key 							// 返回列表key的长度
+2.RPUSH/LPUSH key [value...]		// 在列表的右边|左边加入元素
+3.LRANGE key index-start index-end	// 返回列表key[index-start]~key[index-end]的所有元素
+typedef struct listNode {
+    struct listNode *prev;	// 前置节点
+    struct listNode *next;	// 后置节点 
+    void *value;			// 节点的值
+} listNode;
+typedef struct list {
+	// 双端无环
+    listNode *head;							// 表头节点
+    listNode *tail;							// 表尾节点
+	// 三个函数指针，用以实现多态，设定特定函数
+    void *(*dup)(void *ptr);				// 节点值复制函数
+    void (*free)(void *ptr);				// 节点值释放函数
+    int (*match)(void *ptr, void *key);		// 节点值对比函数
+    unsigned long len;						// 链表所包含的节点数量
+} list;
+(3)字典（符号表、关联数组、映射）：一种用于保存键值对的抽象数据结构
+1.HLEN key 				// 获取一个哈希表的键值对个数
+2.HGETALL key			// 获取一个哈希表中的所有键值
+typedef struct dictEntry {
+    void *key;							// 键
+    union {
+        void *val;
+        uint64_t u64;
+        int64_t s64;
+    } v;								// 值
+    struct dictEntry *next;				// 指向下个哈希表节点，形成链表
+} dictEntry;
+typedef struct dictht {
+    dictEntry **table;					// 哈希表数组
+    unsigned long size;					// 哈希表大小
+    unsigned long sizemask;				// 哈希表大小掩码，用于计算索引值，总是等于size - 1
+    unsigned long used;					// 该哈希表已有节点的数量
+} dictht;
+typedef struct dictType {
+    unsigned int (*hashFunction)(const void *key);							// 计算哈希值的函数
+    void *(*keyDup)(void *privdata, const void *key);						// 复制键的函数
+    void *(*valDup)(void *privdata, const void *obj);						// 复制值的函数
+    int (*keyCompare)(void *privdata, const void *key1, const void *key2);	// 对比键的函数
+    void (*keyDestructor)(void *privdata, void *key);						// 销毁键的函数
+    void (*valDestructor)(void *privdata, void *obj);						// 销毁值的函数
+} dictType;
+typedef struct dict {
+    dictType *type;				// 类型特定函数
+    void *privdata;				// 私有数据
+    dictht ht[2];				// 哈希表ht[0]被使用，ht[1]在rehash时使用
+    int rehashidx;  			// rehash 索引，当 rehash 不在进行时，值为 -1
+    int iterators; 				// 目前正在运行的安全迭代器的数量
+} dict;
+hash = dict->type->hashFunction(k0);
+index = hash & dict->ht[0].sizemask;  // 采用链地址发法，解决键冲突
+3.rehash策略
+收缩、扩展原则，都是：ht[1]大小为第一个大于或等于ht[0].used*2的（2的n次方幂）
+然后ht[0]上的所有键值对，rehash到ht[1]上
+释放ht[0],将ht[1]设置为ht[0]，并在ht[1]新创建一个空白哈希表，为下次rehash做准备
+4.何时收缩或扩展
+负载因子load_factor = ht[0].used / ht[0].size
+①未执行BGSAVE或者BGREWRITEAOF，负载因子>=1，扩展
+②正在执行BGSAVE或者BGREWRITEAOF，负载因子>=5，扩展
+③负载因子<0.1，收缩
+5.rehash是渐进式的，数据很多时，一次性操作十分耗时，分摊到对字典的每个添加、删除、查找操作上，
+(4)跳跃表
+ZADD salary 2000 tom
+ZADD salary 5000 jack		// 有序集合中添加两个成员，各自具有一个价值
+ZCARD salary				// 有序集合的元素个数
+ZRANGE salary index-start index-end [WITHSCORES]	// 输出有序集合的index-start到index-end，带有价值
+在同一个跳跃表中，各个节点保存的成员对象必须是唯一的，但是多个节点保存的分值却可以是相同的。
+typedef struct zskiplistNode {
+    robj *obj;							// 成员对象
+    double score;						// 分值
+    struct zskiplistNode *backward;		// 后退指针
+    struct zskiplistLevel {				
+        struct zskiplistNode *forward;	// 前进指针
+        unsigned int span;				// 跨度
+    } level[];							// 层(1-32的随机数)
+} zskiplistNode;
+typedef struct zskiplist {
+    struct zskiplistNode *header, *tail;	// 表头节点和表尾节点
+    unsigned long length;					// 表中节点的数量
+    int level;								// 表中层数最大的节点的层数
+} zskiplist;								
+(5)整数集合
+(6)压缩列表
+(7)对象
+第二部分、单机数据库的实现
+(1)数据库
+(2)RDB持久化
+(3)AOF持久化
+(4)事件
+(5)客户端
+(6)服务器
+第三部分、多机数据库的实现
+(1)复制
+(2)Sentinel
+(3)集群
+第四部分、独立功能的实现
+(1)发布与订阅
+(2)事务
+(3)Lua脚本
+(4)排序
+(5)二进制位数组
+(6)慢查询日志
+(7)监视器
