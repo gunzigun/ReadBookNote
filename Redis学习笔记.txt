@@ -26,6 +26,7 @@ struct sdshdr {
 由于free区的存在，整个SDS，不用反复的对数组空间进行分配、释放
 内存的扩充策略：小于SDS_MAX_PREALLOC (1024*1024)，则翻倍+1，需要长度加上SDS_MAX_PREALLOC+1，+1是给"\0"的
 惰性空间释放策略：因为字符串缩减后，保留着，用free记录
+---------------------------------------------------------------------------------------------------------
 (2)链表
 1.LLEN key 							// 返回列表key的长度
 2.RPUSH/LPUSH key [value...]		// 在列表的右边|左边加入元素
@@ -45,6 +46,7 @@ typedef struct list {
     int (*match)(void *ptr, void *key);		// 节点值对比函数
     unsigned long len;						// 链表所包含的节点数量
 } list;
+--------------------------------------------------------------------------------------------------------------
 (3)字典（符号表、关联数组、映射）：一种用于保存键值对的抽象数据结构
 1.HLEN key 				// 获取一个哈希表的键值对个数
 2.HGETALL key			// 获取一个哈希表中的所有键值
@@ -90,6 +92,7 @@ index = hash & dict->ht[0].sizemask;  // 采用链地址发法，解决键冲突
 ②正在执行BGSAVE或者BGREWRITEAOF，负载因子>=5，扩展
 ③负载因子<0.1，收缩
 5.rehash是渐进式的，数据很多时，一次性操作十分耗时，分摊到对字典的每个添加、删除、查找操作上，
+------------------------------------------------------------------------------------------------------------
 (4)跳跃表
 ZADD salary 2000 tom
 ZADD salary 5000 jack		// 有序集合中添加两个成员，各自具有一个价值
@@ -110,6 +113,7 @@ typedef struct zskiplist {
     unsigned long length;					// 表中节点的数量
     int level;								// 表中层数最大的节点的层数
 } zskiplist;								
+---------------------------------------------------------------------------------------------------------------
 (5)整数集合
 SADD numbers 1 3 5 7 9			// 创建一个集合，有5个元素
 typedef struct intset {
@@ -121,6 +125,7 @@ typedef struct intset {
 encoding=INTSET_ENC_INT16、INTSET_ENC_INT32、INTSET_ENC_INT64，对应int16_t、int32_t、int64_t
 存在升级操作，当一个新加入数是int64_t，其它数据也被升级到int64_t（节约内存），但是不再降级
 该新加入元素，小于所有现有元素，放开头；新加入元素，大于所有现有元素，放结尾
+--------------------------------------------------------------------------------------------------------------
 (6)压缩列表（ziplist）
 当一个列表键只包含少量列表项，并且每个列表要么就是小整数值，要么就是长度较短的字符串，那么就使用压缩列表来实现
 RPUSH lst 1 3 5 10086 "hello" "world"
@@ -148,10 +153,89 @@ typedef struct zlentry {
     unsigned char *p;					// 指向当前节点的指针
 } zlentry;
 上述紧凑的结构，对压缩链表的增加元素、删除元素，将引发连锁更新
+--------------------------------------------------------------------------------------------------------------
 (7)对象
 Redis并没有直接使用(1)-(6)的数据结构来实现键值对数据库，而是基于这些数据结构，创建了一个对象系统。
 其中包含对象有：字符串对象、列表对象、哈希对象、集合对象、有序集合对象
 此外，Redis对象系统还实现了，基于引用计数的内存回收机制，当程序不再使用某个对象时，对象所占用的内存会被自动释放
+typedef struct redisObject {
+    unsigned type:4;				// 类型
+    unsigned encoding:4;			// 编码
+    unsigned lru:REDIS_LRU_BITS; 	// 对象最后一次被访问的时间
+    int refcount;					// 引用计数
+    void *ptr;						// 指向实际值的指针
+} robj;
+对于数据库保存的键值对来说，键总是一个字符串对象，而值可以是字符串对象、列表对象、哈希对象、集合对象、有序集合对象
+type = REDIS_STRING、REDIS_LIST、REDIS_HASH、REDIS_SET、REDIS_ZSET
+TYPE msg		// 指令返回msg键，对应值的对象类型（string、list、hash、set、zset）
+encoding 类型定义如下
+#define REDIS_ENCODING_RAW 0     /* Raw representation 简单动态字符串*/		<->REDIS_STRING
+#define REDIS_ENCODING_INT 1     /* Encoded as integer long类型整数*/	<->REDIS_STRING
+#define REDIS_ENCODING_HT 2      /* Encoded as hash table 字典*/	<->REDIS_HASH、REDIS_SET
+#define REDIS_ENCODING_ZIPMAP 3  /* Encoded as zipmap 其实质是用一个字符串数组来依次保存key和value*/
+#define REDIS_ENCODING_LINKEDLIST 4 /* Encoded as regular linked list 双端链表*/	<->REDIS_LIST
+#define REDIS_ENCODING_ZIPLIST 5 /* Encoded as ziplist 压缩列表*/	<->REDIS_LIST、REDIS_HASH、REDIS_ZSET
+#define REDIS_ENCODING_INTSET 6  /* Encoded as intset 整数集合*/	<->REDIS_SET
+#define REDIS_ENCODING_SKIPLIST 7  /* Encoded as skiplist 跳跃表和字典*/	<->REDIS_ZSET
+#define REDIS_ENCODING_EMBSTR 8  /* Embedded sds string encoding embstr编码的简单动态字符串*/	<->REDIS_STRING
+OBJECT ENCODING msg	
+//指令返回msg键，对应值的编码类型（int、embstr、raw、hashtable、linkedlist、ziplist、intset、skiplist）
+//以上type和encoding的实现，极大地提升了Redis的灵活性和效率
+OBJECT REFCOUNT msg		// 返回对象的引用计数
+OBJECT IDLETIME	msg		// 返回对象有多久没被使用过了
+1.字符串对象（string）：可以使用int，raw，embstr来实现
+embstr实现将raw实现的中两次分配操作（redisObject和sdshdr），合并为一次，内存是连续的，提高了效率
+对embstr字符串执行任何修改命令时，程序会先将对象编码从embstr->raw
+SET、GET、APPEND、INCRBYFLOAT、INCRBY、DECRBY、STRLEN、
+SETRANGE key offset value、GETRANGE key start end
+2.列表对象（list）：可以使用ziplist或者linkedlist来实现
+①列表对象保存的所有字符串元素的长度都小于64字节  &  ②列表对象保存的元素数量小于512，才使用ziplist实现
+上限值可修改，在list-max-ziplist-value和list-max-ziplist-entries
+当加入元素后，不满足①②条件，则转换成linkedlist编码
+LPUSH、RPUSH、LPOP、RPOP、LINDEX key index、LLEN、LINSERT key BEFORE|AFTER pivot(轴元素) value、
+LREM key count value、LTRIM key start stop、LSET
+3.哈希对象（hash）：可以使用ziplist或者hashtable来实现
+如果以ziplist编码：调用三次HSET，加入3个键值对后，压缩链表内key1,value1,key2,value2,key3,value3保存了6个元素
+①哈希对象保存的所有键值对的键和值的长度都小于64字节  &  ②哈希对象保存的键值对数量小于512，才使用ziplist实现
+上限值可修改，在hash-max-ziplist-value和hash-max-ziplist-entries
+当加入元素后，不满足①②条件，则转换成hashtable编码
+HSET hash field value、HGET hash field、HEXISTS hash field、HDEL hash field [field …]、HLEN、HGETALL
+4.集合对象（set）：可以使用intset或者hashtable来实现
+①集合对象保存的所有元素都是整数值	& ②集合对象保存的元素数量不超过512个， 才使用intset实现
+上限值可修改，set-max-intset-entries
+当加入元素后，不满足①②条件，则转换成hashtable编码
+SADD、SCARD（返回元素数量）、SISMEMBER、SMEMBERS、SRANDMEMBER、SPOP（随机删除一个元素并返回）、SREM key member
+5.有序集合对象（zset）：可以使用ziplist或者skiplist来实现
+如果使用ziplist编码：压缩链表保存成员1，分值1，成员2，分值2
+如果使用skiplist编码
+typedef struct zset {
+	zskiplist *zsl;
+	dict *dict;			//保存成员到分值的映射
+} zset;
+虽然既有跳跃表，又有字典，但是数据不重复，因为通过指针共享相同的成员和分值
+①有序集合保存的元素数量小于128个 & ②有序集合保存的所有元素成员的长度都小于64字节，才使用ziplist实现
+上限值可修改，在zset-max-ziplist-value和zset-max-ziplist-entries
+当加入元素后，不满足①②条件，则转换成skiplist编码
+ZADD key score member [[score member] [score member] …]、ZCARD key（返回元素数量）、ZCOUNT key min max（值范围内元素）、
+ZRANGE key start stop [WITHSCORES]（index范围内递增）、ZREVRANGE key start stop [WITHSCORES]（index范围内递减）、
+ZRANK key member（成员的正向排名）、ZREVRANK key member（成员的逆向排名）、
+ZREM key member、ZSCORE key member
+-----------------------------------------------------------------------------------------------------------------
+(8)对象的使用
+1.Redis中用于操作键的命令基本上可以分为两种类型：
+①可对任何键
+DEL删除、EXPIRE key seconds设置自动过期时间、RENAME重命名、TYPE类型、OBJECT命令等
+②只能对特定类型的键：见（7）中描述，Redis在执行前会先做类型检查
+2.内存回收
+typedef struct redisObject {
+	...
+    int refcount;					// 引用计数
+} robj;
+创建一个新对象时，引用refcount初始化为1，被新程序使用+1，不在被一个程序使用-1，变为0时，释放
+3.对象共享（只对包含整数值的字符串对象进行共享0-9999，不然判断相同太耗时了）
+将数据库键的值指针指向一个现有的值对象，被共享的值对象的引用计数+1
+创建共享字符串对象的数量可以通过修改redis.h/REDIS_SHARED_INTEGERS常量来修改
+-----------------------------------------------------------------------------------------------------------------
 第二部分、单机数据库的实现
 (1)数据库
 (2)RDB持久化
