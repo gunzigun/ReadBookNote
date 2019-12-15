@@ -111,8 +111,47 @@ typedef struct zskiplist {
     int level;								// 表中层数最大的节点的层数
 } zskiplist;								
 (5)整数集合
-(6)压缩列表
+SADD numbers 1 3 5 7 9			// 创建一个集合，有5个元素
+typedef struct intset {
+    uint32_t encoding;		// 编码方式
+    uint32_t length;		// 集合包含的元素数量
+    int8_t contents[];		// 保存元素的数组
+} intset;
+虽然intset结构将contents属性声明为int8_t，实际上其类型由encoding决定
+encoding=INTSET_ENC_INT16、INTSET_ENC_INT32、INTSET_ENC_INT64，对应int16_t、int32_t、int64_t
+存在升级操作，当一个新加入数是int64_t，其它数据也被升级到int64_t（节约内存），但是不再降级
+该新加入元素，小于所有现有元素，放开头；新加入元素，大于所有现有元素，放结尾
+(6)压缩列表（ziplist）
+当一个列表键只包含少量列表项，并且每个列表要么就是小整数值，要么就是长度较短的字符串，那么就使用压缩列表来实现
+RPUSH lst 1 3 5 10086 "hello" "world"
+HMSET profile "name" "Jack" "age" 28 "job" "Programmer"		// 往一个列表中加入多个键值对
+非空 ziplist 示例图
+
+area        |<---- ziplist header ---->|<----------- entries ------------->|<-end->|
+
+size          4 bytes  4 bytes  2 bytes    ?        ?        ?        ?     1 byte
+            +---------+--------+-------+--------+--------+--------+--------+-------+
+component   | zlbytes | zltail | zllen | entry1 | entry2 |  ...   | entryN | zlend |
+            +---------+--------+-------+--------+--------+--------+--------+-------+
+                                       ^                          ^        ^
+address                                |                          |        |
+                                ZIPLIST_ENTRY_HEAD                |   ZIPLIST_ENTRY_END
+                                                                  |
+                                                        ZIPLIST_ENTRY_TAIL
+*/
+typedef struct zlentry {
+    // prevrawlen ：前置节点的长度; prevrawlensize ：编码 prevrawlen 所需的字节大小
+    unsigned int prevrawlensize, prevrawlen;
+    unsigned int lensize, len;			// len ：当前节点值的长度; lensize ：编码 len 所需的字节大小
+    unsigned int headersize;			// 当前节点 header 的大小; 等于 prevrawlensize + lensize
+    unsigned char encoding;				// 当前节点值所使用的编码类型
+    unsigned char *p;					// 指向当前节点的指针
+} zlentry;
+上述紧凑的结构，对压缩链表的增加元素、删除元素，将引发连锁更新
 (7)对象
+Redis并没有直接使用(1)-(6)的数据结构来实现键值对数据库，而是基于这些数据结构，创建了一个对象系统。
+其中包含对象有：字符串对象、列表对象、哈希对象、集合对象、有序集合对象
+此外，Redis对象系统还实现了，基于引用计数的内存回收机制，当程序不再使用某个对象时，对象所占用的内存会被自动释放
 第二部分、单机数据库的实现
 (1)数据库
 (2)RDB持久化
