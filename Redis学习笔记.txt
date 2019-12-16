@@ -329,7 +329,50 @@ Reading messages... (press Ctrl-C to quit)
 发送通知，在notifiy.c/notifyKeyspaceEvent函数实现
 ----------------------------------------------------------------------------------------------------------------
 (2)RDB持久化
-(3)AOF持久化
+SAVE	// 会阻塞Redis服务器进程，直到RDB文件创建完毕为止
+BGSAVE	// 会fork一个子进程，然后由子进程负责RDB文件的创建，父进程继续处理命令请求
+1.RDB文件的创建和写入
+创建RDB文件，由rdb.c/rdbSave函数完成
+AOF文件的更新频率比RDB文件的更新频率高，如果开启了AOF持久化功能，会优先使用AOF文件来还原文件
+载入RDB文件，由rdb.c/rdbLoad函数完成
+struct redisServer{
+	// ...
+	struct saveparam *saveparams;		// 记录了保存条件的数组，由conf文件配置
+	long long dirty;					// 修改计数器（距离上次保存，进行了多少次修改）
+	time_t lastsave;					// 上一次执行保存的时间
+	// ...
+};
+struct saveparam{
+	time_t seconds;		// 秒数
+	int changes;		// 修改数
+};										// seconds秒内，修改了changes次，则保存，调用BGSAVE
+Redis的服务器周期性操作函数serverCron默认每隔100毫秒就会执行一次，查看条件是否满足，满足就BGSAVE
+RDB文件结构
+REDIS|db_version|【SELECTDB|0|pairs】|【SELECTDB|3|pairs】|EOF|check_sum
+pairs中的一个: [EXPIRETIME_MS|ms] （有过期时间的键，可选）| 【TYPE|key|value】
+2.查看RDB文件，od -c dump.rdb 
+-----------------------------------------------------------------------------------------------------------------
+(3)AOF持久化(Append Only File)
+通过保存Redis服务器所执行的写命令来记录数据库状态的，即AOF文件里保存的是一条条指令
+三个步骤：配置 appendonly yes
+struct redisServer{
+	// ...
+	sds aof_buf;		// AOF缓冲区
+	// ...
+};
+1.命令追加
+SET key value，之后，在aof_buf缓冲区，追加内容：*3\r\n$3\r\nSET\r\n$3\r\nkey\r\n$5\r\nvlaue\r\n
+2.文件写入 和 3.文件同步   flushAppendOnlyFile函数，行为由appendfsync配置决定
+appendfsync always			// aof_buf所有内容写入，并同步到AOF文件，安全性最高，但是效率最慢，最多丢失一个命令数据
+appendfsync everysec		// aof_buf所有内容写入，距离上次同步，必须超过一秒钟，才能同步，最多丢失一秒数据
+appendfsync no				// aof_buf所有内容写入，并不同步，何时同步，由系统决定，容易丢失数据
+// 以上所说的同步，是指系统缓存内容真正写入到磁盘中
+4.启动之前，建立一个伪客户端，逐条执行保存下来的指令即可，还原回之前的状态
+5.AOF文件的大小很容易膨胀：【解决办法-AOF文件重写】【BGREWRITEAOF】
+BGREWRITEAOF，并不读原来的AOF文件，直接分析当前DB的状态，然后简化为一条新的命令，代替原来AOF中的多条命令
+重写子进程在后台运行，这时候主进程可能还有收到写命令，这些命令需要同时加入到AOF重写缓冲区、AOF缓冲区
+重写完毕，子进程告知父进程，父进程将重写缓冲区的内容写到新AOF文件中，然后把旧的AOF文件覆盖掉
+-----------------------------------------------------------------------------------------------------------------
 (4)事件
 (5)客户端
 (6)服务器
