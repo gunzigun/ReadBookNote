@@ -367,6 +367,7 @@ appendfsync always			// aof_buf所有内容写入，并同步到AOF文件，安�
 appendfsync everysec		// aof_buf所有内容写入，距离上次同步，必须超过一秒钟，才能同步，最多丢失一秒数据
 appendfsync no				// aof_buf所有内容写入，并不同步，何时同步，由系统决定，容易丢失数据
 // 以上所说的同步，是指系统缓存内容真正写入到磁盘中
+// Redis的服务器周期性操作函数serverCron默认每隔100毫秒就会执行一次，如果aof_buf有数据，会写入AOF文件
 4.启动之前，建立一个伪客户端，逐条执行保存下来的指令即可，还原回之前的状态
 5.AOF文件的大小很容易膨胀：【解决办法-AOF文件重写】【BGREWRITEAOF】
 BGREWRITEAOF，并不读原来的AOF文件，直接分析当前DB的状态，然后简化为一条新的命令，代替原来AOF中的多条命令
@@ -447,6 +448,84 @@ client-output-buffer-limit pubsub 32mb 8mb 60
 第三行设置将从服务器客户端的硬性限制设置为32MB，软性限制设置为8MB，软性限制时长60秒
 -----------------------------------------------------------------------------------------------------------------
 (6)服务器
+1.命令请求的执行过程
+①数据的传输和指令的查询
+客户端键入 set key value，转为协议内容，发往服务器：*3\r\n$3\r\nSET\r\n$3\r\nkey\r\n$5\r\nvlaue\r\n
+服务器将此内容保存到redisClient.querybuf，然后进行分析，提取出指令和参数argv、argc
+根据argv[0]，查找命令表commandtable，将找的redisCommand保存到，redisClient.cmd
+②执行预备操作
+检查cmd指针是否指向NULL，说明没这么个执行，向客户端返回一个错误
+查看cmd指向的redisCommand结构arity，检查命令请求所给定的参数个数是否满足
+查看是否通过了身份验证，redisClient.authenticated为0是，只能执行AUTH指令
+如果服务器打开了maxmemory功能，那么在执行命令之前，先检查内存占用情况。。。。。等等一些判定指令的动作
+③函数调用，执行指令
+返回的回复，被加入到redisClient.buf或者redisClient.reply中
+④执行后续工作
+如果有日志功能，写日志
+更新redisCommand关于指令执行时间，指令执行次数的计数值
+如果开启了AOF功能，会有AOF持久化动作，写入AOF缓冲区
+如果有其他从服务器在复制这个服务器，那么服务器会将刚刚执行的命令传播给所有从服务器
+⑤将redisClient.buf或者redisClient.reply中的缓冲数据，发送给客户端，并清空，以备下一个指令
+⑥客户端将返回的数据，在界面上进行展示
+2.serverCron函数
+①更新服务器时间缓存
+struct redisServer{
+	time_t unixtime;		// 保存了秒级精度的系统当前UNIX时间戳，serverCron函数每100毫秒更新一次
+	long long mstime;		// 保存了毫秒级精度的系统当前UNIX时间戳，serverCron函数每100毫秒更新一次
+	unsigned lruclock:22;	// 时钟值，serverCron函数每10秒更新一次
+};
+lruclock-对象中的lru，就是键的空闲时间，但是10秒更新一次的时钟，不是实时的
+②更新服务器每秒执行命令次数
+INFO status命令的instantaneous_ops_per_sec域查看
+struct redisServer{
+    long long ops_sec_last_sample_time; 				// 最后一次进行抽样的时间 
+    long long ops_sec_last_sample_ops; 					// 最后一次抽样时，服务器已执行命令的数量
+    long long ops_sec_samples[REDIS_OPS_SEC_SAMPLES];	// 抽样结果		
+    int ops_sec_idx;									// 数组索引，用于保存抽样结果，并在需要时回绕到 0
+};
+serverCron中的traceOperationsPerSecond函数每100毫秒运行一次，计算前两个字段的插值，计算1秒执行多少指令
+这个估计值被放在ops_sec_samples数组中，并且由ops_sec_idx所指向
+③redisServer.stat_peak_memory			// 记录了服务器内存峰值大小，每次serverCron都会回去当前内存，然后更新一次
+INFO memory命令的used_memory_peak、used_memory_peak_human域查看
+④Redis的SIGTERM信号处理函数sigtermHandler，在接收到信号后，会设redisServer.shutdown_asap
+每次serverCron，检查这个标识，如果是1，则关闭服务器
+⑤redisServer.aof_rewrite_scheduled			// BGSAVE会延迟BGREWRITEAOF，调用serverCron时，这个标志为1，则执行被推后的指令
+redisServer.rdb_child_pid
+redisServer.aof_child_pid					// 如果为>-1的整数，说明有BGSAVE或BGREWRITEAOF在执行
+⑥serverCron函数每次执行，都会调用clientsCron函数，检查：
+如果客户端与服务器连接已超时，释放该客户端，
+如果客户端上一次命令请求，输入缓冲区超过了一定长度，释放，重新创建一个默认大小缓冲区
+⑦serverCron函数每次执行，都会调用databasesCron函数，删除过期键
+⑧redisServer.cronloops				// 记录了serverCron函数执行的次数
+3.初始化服务器
+①初始化服务器状态结构 reids.c/initServerConfig
+void initServerConfig() {
+	// 设置服务器的运行 ID
+    getRandomHexChars(server.runid,REDIS_RUN_ID_SIZE);
+    // 设置默认配置文件路径
+    server.configfile = NULL;
+    // 设置默认服务器频率
+    server.hz = REDIS_DEFAULT_HZ;
+    // 为运行 ID 加上结尾字符
+    server.runid[REDIS_RUN_ID_SIZE] = '\0';
+    // 设置服务器的运行架构
+    server.arch_bits = (sizeof(long) == 8) ? 64 : 32;
+    // 设置默认服务器端口号
+    server.port = REDIS_SERVERPORT;
+	...
+	// 加载命令表
+}
+②载入配置选项  --port redis.conf等
+③初始化除命令表之外的数据结构
+server.clients链表，server.db数组，保存订阅信息的server.pubsub_channels字典、server.pubsub_patterns链表
+执行Lua脚本的Lua环境server.lua，server.slowlogs（保存慢查询日志）
+④其它操作
+为服务器设置信号处理器、创建共享对象、打开服务器监听端口、为serverCron创建时间时间
+AOF功能打开时，创建并打开一个AOF文件。。。【打印版本信息】redis图
+⑤还原数据库
+载入RDB、AOF持久化文件等等。
+至此圆满完成，输出可以等待客户端连接了。
+-----------------------------------------------------------------------------------------------------------------
 第三部分、多机数据库的实现
 (1)复制
 (2)Sentinel
