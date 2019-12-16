@@ -374,7 +374,78 @@ BGREWRITEAOF，并不读原来的AOF文件，直接分析当前DB的状态，然
 重写完毕，子进程告知父进程，父进程将重写缓冲区的内容写到新AOF文件中，然后把旧的AOF文件覆盖掉
 -----------------------------------------------------------------------------------------------------------------
 (4)事件
+Reids服务器是一个事件驱动程序，主要有两类事件：【文件事件】、【时间事件】
+1.文件事件：套接字、I/O多路复用程序、文件事件分派器、事件处理器（函数）
+多路复用的代码，ae.h、ae.c、ae_epoll.c、ae_evport.c、ae_kqueue.c、ae_select.c
+事件类型：AE_READABLE和AE_WRITABLE，优先处理可读事件
+事件处理器（networking.c）：
+连接应答处理器(acceptTcpHandler)、命令请求处理器(readQueryFromClient)、命令回复处理器(sendReplyToClient)
+2.时间事件（id，when，timeProc）：定时事件（目前版本没有）、周期性事件
+持续运行的Redis服务器需要定期对自身的资源和状态进行检查和调整，从而确保服务器可以长期、稳定的运行（serverCron函数）
+serverCron函数，每间隔100毫秒运行一次（默认）。修改redis.conf中的hz选项来修改（每秒运行次数）
+-----------------------------------------------------------------------------------------------------------------
 (5)客户端
+遍历clients链表来找到某个连接在服务器上的客户端
+struct redisServer{
+	// ...
+	list *clients;		// 一个链表，保存了所有客户端状态（redisClient）
+	// ...
+};
+typedef struct redisClient{
+	// ...
+	int fd;			// 文件描述符
+	robj *name;		// 客户端名字
+	int flags;		// 客户端类型、状态
+	// ...	
+} redisClient;	
+【伪客户端】：fd的属性值为-1，伪客户端的命令请求来源于AOF文件或者Lua脚本，而不是网络
+【普通客户端】：fd为大于-1的整数，用来与服务器通信。
+CLIENT list查看连接到服务器上的客户端信息。
+CLIENT setname xuguanglong 设置客户端的名称。
+2.客户端请求命令，命令参数
+typedef struct redisClient{
+	// ...
+	sds querybuf;	// 保存客户端发送的命令请求
+	robj **argv;	// 是一个数组，数组中每一项是一个字符串对象，argv[0]是要执行的命令，之后的命令参数
+	int argc;		// 记录argv的长度
+	struct redisCommand *cmd;		// 见下面解释
+	// ...	
+} redisClient;
+系统保存了一份命令表，键是一个SDS结构，保存了命令的名字，值是命令所对应的redisCommand结构，根据argv[0]找到对应的结构，让cmd指向之
+3.输出缓冲区（指令的执行结果，保存在其中）
+有两个缓冲区：
+一个缓冲区大小固定（保存OK，简短字符串值等较小的回复）
+typedef struct redisClient{
+	// ...
+	char buf[REDIS_REPLY_CHUNK_BYTES];			// 字节数组
+	int bufpos;									// 保存buf数组目前已使用的字节数量
+	// ...
+} redisClient;
+另一个缓冲区大小是可变的（如下），由reply链表和一个或多个字符串对象组成
+typedef struct redisClient{
+	// ...
+	list *reply;				// 一个又一个StringObject，连接起来		
+	// ...
+} redisClient;
+4.身份验证，上述结构中，还有一个int authenticated;字段  0表示未通过验证，1表示通过了验证
+5.时间相关的属性
+typedef struct redisClient{
+	// ...
+	time_t ctime;							// 记录了创建客户端的时间
+	time_t lastinteraction;					// 记录了客户端与服务器最后一次进行互动（interaction）的时间
+	time_t obuf_soft_limit_reached_time;	// 记录了输出缓冲区第一次到达软性限制（soft limit）的时间
+	// ...
+} redisClient;
+6.配置项
+硬性限制：如果输出缓冲区大小超过了硬性限制所设置的大小，那么立刻关闭客户端
+软性限制：如果输出缓冲区大小超过了软性性限制所设置的大小，服务器，记录下该客户端达到软性限制的起始时间，如果在设置time范围内降下来了，就不关，并且obuf_soft_limit_reached_time也会被清零，从新计算。
+client-output-buffer-limit normal 0 0 0
+client-output-buffer-limit slave 256mb 64mb 60
+client-output-buffer-limit pubsub 32mb 8mb 60
+第一行设置普通客户端的硬性限制和软性限制都为0，表示不限制客户端的输出缓冲区大小
+第二行设置将从服务器客户端的硬性限制设置为256MB，软性限制设置为64MB，软性限制时长60秒
+第三行设置将从服务器客户端的硬性限制设置为32MB，软性限制设置为8MB，软性限制时长60秒
+-----------------------------------------------------------------------------------------------------------------
 (6)服务器
 第三部分、多机数据库的实现
 (1)复制
