@@ -569,8 +569,75 @@ struct redisServer{
 身份验证：视从服务器是否设置了masterauth选项来定，主服务器的requirepass选项设置了密码
 4.此外，从服务器默认以每秒一次的频率，向主服务发送心跳检测。确保网络连接正常，以防数据丢失。
 ------------------------------------------------------------------------------------------------------------------
-(2)Sentinel
-(3)集群
+(2)Sentinel（一个特殊的Redis服务器）
+Sentinel（哨岗、哨兵）是Redis的高可用性解决方案，监视多个主服务器，及其从服务器
+某个主服务下线时，使其随机一个从服务器升级为主服务器（slaveof no one），其余从服务器成为新主服务器的从服务器
+1.启动并初始化Sentinel
+redis-sentinel sentinel.conf
+redis-server sentinel.conf --sentinel（跟上一条指令效果一样）
+①初始化服务器
+普通服务器，要载入RDB、AOF文件，Sentinel不用，还有数据库和键值对指令等也都不用，因为Sentinel就是用来监控用的
+②将普通服务器使用的代码替换成Sentinel专用代码
+端口号和普通服务器不同，指令表也不同
+③初始化Sentinel状态
+④根据配置文件，监视主服务器。连接主服务器
+sentinel monitor mymaster 127.0.0.1 6666 2			// 要监视的主服务器，2表示quorum，表示当有2个sentinel认为下线之后，就客观认为下线
+sentinel down-after-milliseconds mymaster 30000		// 主服务器失联多久认为是主观下线
+sentinel parallel-syncs mymaster 1					// 选项指定了在执行故障转移时，最多可以有多少个从服务器同时对新的主服务器进行同步 
+sentinel failover-timeout mymaster 180000			// 
+Sentinel与主服务创建两个异步连接，命令连接、订阅连接
+2.Redis 的 Sentinel 中关于下线（down）有两个不同的概念：
+主观下线（Subjectively Down， 简称 SDOWN）指的是单个 Sentinel 实例对服务器做出的下线判断。
+客观下线（Objectively Down， 简称 ODOWN）指的是多个 Sentinel 实例在对同一个服务器做出 SDOWN 判断,
+并且通过 SENTINEL is-master-down-by-addr 命令互相交流之后， 得出的服务器下线判断。 
+（一个 Sentinel 可以通过向另一个 Sentinel 发送 SENTINEL is-master-down-by-addr 命令来询问对方是否认为给定的服务器已下线。）
+3.启动redis-cli，指定sentinel服务器的IP和端口。执行下列指令
+SENTINEL masters ：列出所有被监视的主服务器，以及这些主服务器的当前状态；
+SENTINEL slaves <master name> ：列出给定主服务器的所有从服务器，以及这些从服务器的当前状态；
+SENTINEL get-master-addr-by-name <master name> ： 返回给定名字的主服务器的 IP 地址和端口号。 如果这个主服务器正在执行故障转移操作， 或者针对这个主服务器的故障转移操作已经完成， 那么这个命令返回新的主服务器的 IP 地址和端口号；
+SENTINEL reset <pattern> ： 重置所有名字和给定模式 pattern 相匹配的主服务器。 pattern 参数是一个 Glob 风格的模式。 重置操作清楚主服务器目前的所有状态， 包括正在执行中的故障转移， 并移除目前已经发现和关联的， 主服务器的所有从服务器和 Sentinel ；
+SENTINEL failover <master name> ： 当主服务器失效时， 在不询问其他 Sentinel 意见的情况下， 强制开始一次自动故障迁移。
+-------------------------------------------------------------------------------------------------------------------
+(3)集群(需要在redis.conf文件中配置，cluster-enabled yes)
+CLUSTER NODES					// 查看集群节点，就是clusterNode（见下面解释）的信息
+CLUSTER MEET [ipaddr port]		// 集群加入节点
+CLUSTER INFO 					// 查看集群信息
+一个节点加入集群后，通过Gossip协议，集群中的所有节点，都会知晓这个新加入的节点
+1.集群的数据结构
+cluster.h/clusterNode
+保存了一个节点的当前状态（创建时间，名字，IP地址和端口号），每个节点除了保存自己的节点信息，还会保存集群中其它节点的信息
+cluster.h/clusterLink
+保存了节点之间的连接信息，包括连接时间，套接字描述符，输入缓冲区，输出缓冲区
+cluster.h/clusterState
+保存了当前节点视角下，集群目前所处状态，例如集群是在线还是下线，集群包含多少个节点，集群当前的配置纪元
+2.槽指派
+Redis集群通过分片的方式来保存数据库中的键值对：
+集群的整个数据库被分为16384个槽（slot），数据库中的每个键都属于这16384个槽中的一个，每个节点可以处理0-16384个槽
+如果集群的16384个槽，都有节点处理时，称集群处于“上线状态”
+CLUSTER ADDSLOTS 5...5000
+redis-cli -h 服务器IP -p 端口号 cluster addslots {0..5460}
+struct clusterNode{
+	// ...
+	unsigned char slots[16384/8];		// 2048个字节元素，每个元素表示8位，一共表示16384位，记录每个节点分配的槽
+	int numslots;
+	// ...
+};
+typedef struct clusterState{
+	// ...
+	clusterNode *slots[16384];			// 表明各个槽分配了哪个节点
+	// ...
+};
+分配好槽之后，集群就被激活了，可以使用了，这样一来，各个节点处理各自的槽
+3.计算键属于哪个槽
+CLUSTER KETSLOT "date"				// 查看某个键属于哪个槽
+如果键对应槽，不由当前节点处理，则转给集群中的其它节点处理   MOVED <slot>(键所在槽) <ip>:<port>	
+4.节点数据库的实现
+节点和单机数据库的一大区别，节点只能使用0号数据库
+clusterState里用一个跳跃表（zskiplist * slots_to_keys），保存了槽和键的对应关系，分值就是槽号
+5.redis-trib程序用来给，集群的槽重新分配
+6.设置从节点
+CLUSTER REPLICATE <node_id>	
+-------------------------------------------------------------------------------------------------------------------
 第四部分、独立功能的实现
 (1)发布与订阅
 (2)事务
