@@ -771,10 +771,16 @@ SORT students ALPHA GET *-name GET *-birth，之后返回各个人的全名和�
 【综合】
 SORT <key> ALPHA DESC BY <by-pattern> LIMIT <offset> <count> GET <get-pattern> STORE <store_key>
 ---------------------------------------------------------------------------------------------------------------------
-(5)二进制位数组16
-
+(5)二进制位数组
+SETBIT key position value			// 第position位设置为value
+GETBIT key position					// 返回第position位的值
+BITCOUNT key 						// 统计位数组里面，值为1的二进制位数量
+BITOP AND and-result key1 key2 		// 与操作
+BITOP OR or-result key1 key2 		// 并操作
+BITOP XOR xor-result key1 key2 		// 异或操作
+BITOP NOT and-result key1 key2 		// 非操作
 ---------------------------------------------------------------------------------------------------------------------
-(6)慢查询日志8
+(6)慢查询日志
 
 ---------------------------------------------------------------------------------------------------------------------
 (7)监视器
