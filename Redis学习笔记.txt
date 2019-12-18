@@ -771,7 +771,7 @@ SORT students ALPHA GET *-name GET *-birth，之后返回各个人的全名和�
 【综合】
 SORT <key> ALPHA DESC BY <by-pattern> LIMIT <offset> <count> GET <get-pattern> STORE <store_key>
 ---------------------------------------------------------------------------------------------------------------------
-(5)二进制位数组
+(5)二进制位数组（通过SDS来实现，SDS的一个字节元素，表示8位）
 SETBIT key position value			// 第position位设置为value
 GETBIT key position					// 返回第position位的值
 BITCOUNT key 						// 统计位数组里面，值为1的二进制位数量
@@ -781,7 +781,20 @@ BITOP XOR xor-result key1 key2 		// 异或操作
 BITOP NOT and-result key1 key2 		// 非操作
 ---------------------------------------------------------------------------------------------------------------------
 (6)慢查询日志
-
+两个服务器配置：
+slowlog-log-slower-than 指定执行时间超过多少微秒的命令请求会被记录到日志上
+slowlog-max-len			指定服务器最多保存多少条慢查询日志
+CONFIG SET slowlog-log-slower-than 0
+CONFIG SET slowlog-max-len 5
+SLOWLOG GET 
+1) 1) (integer) 4				#日志的唯一标识符（uid）
+   2) (integer) 1378781447		#命令执行是的UNIX时间戳
+   3) (integer) 13				#命令执行的时长，以微秒计算
+   4) 1) "SET"					#命令以及命令参数
+	  2) "database"
+	  3) "Redis"
+SLOWLOG LEN				// 获取日志长度
+SLOWLOG RESET			// 清空日志
 ---------------------------------------------------------------------------------------------------------------------
 (7)监视器
 MONITOR指令，使得一个客户端变成一个监视器，实时接收并打印出服务器当前处理的命令请求信息
