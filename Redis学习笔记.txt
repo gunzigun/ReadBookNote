@@ -712,9 +712,56 @@ MULTI之后，命令入队（参数错误）失败，那么EXEC是失败报错�
 ④耐久性Durability
 RDB模式下时，隔一段时间，满足条件才会BGSAVE一次，不具备耐久性
 AOF模式下，appendfsync always时，真正的具有耐久性；appendfsync everysec时，每秒才真正存盘，不具有耐久性
-
+---------------------------------------------------------------------------------------------------------------------
 (3)Lua脚本
-(4)排序
-(5)二进制位数组
-(6)慢查询日志
-(7)监视器
+EVAL "return 'hello world'" 0
+SCRIPT LOAD "return 2*2"		// 返回"231jhada1edadad1d2eqddd"校验和
+EVALSHA "231jhada1edadad1d2eqddd" 0		// 等同于执行EVAL "return 2*2" 0
+EVAL script numkeys key [key …] arg [arg …]
+EVAL "return redis.call('SET', KEYS[1], ARGV[1])" 1 "msg" "hello" 		// 1表明后面只有一个key其它是argv
+1.创建并修改Lua环境
+①服务器调用Lua的C-API:lua_open，创建一个新的Lua环境，但是为了满足redis要求，还要做修改
+②载入函数库
+基础库：Lua的核心函数，assert、error、pairs、tostring、pcall等，为了防止用户外部引入，loadfile函数被删除了
+表格库：table.concat、table.insert、table.remove、table.sort等
+字符串库：string.find、string.format、string.len、string.reverse等
+数学库：math.abs、math.max、mat.min、math.sqrt、math.log等
+调试库：debug.sethook、debug.gethook等
+CJSON库：cjson.decode将一个JSON格式字符串转换为一个Lua值，cjson.encode函数将一个Lua值序列化为JSON格式字符串
+Struct库：用于在Lua值和C结构之间进行转换，struct.pack、struct.unpack
+③创建redis全局表格
+就是在Lua环境中，创建一个redis调用表
+【redis.call、redis.pcall】、redis.log、redis.sha1hex、redis.error_reply、redis.status_reply
+EVAL "return redis.call('PING')" 0				// 返回PONG
+④使用Redis自制的随机数函数来替换Lua原有的随机函数
+因为：Redis要求所有传入服务器的Lua脚本，以及Lua函数，无副作用
+redis.pcall函数调用不正确的指令时，会返回错误，发生在脚本的位置
+⑤保护Lua的全局环境
+服务器将对Lua环境中的全局环境进行保护，确保传入服务器的脚本不会因为忘记使用local关键字而添加全局变量到lua环境中
+⑥将redisServer.lua指向创建好的lua环境
+2.Lua环境协作组件
+①应为Lua环境中，有redis.call和redis.pcall，执行redis指令，但是执行Redis指令，需要客户端，所以建立一个【伪客户端】
+②lua_scripts字典
+struct redisServer
+{
+	dict *lua_scripts;		// 键是某个Lua脚本的SHA1校验和，值为对应的Lua脚本
+};
+3.Redis中与Lua脚本有关的命令
+SCRIPT FLUSH 用于清除服务器中所有和Lua脚本有关的信息，这个命令会释放并重建lua_scripts字典，关闭Lua环境，重建一个Lua环境
+SCRIPT EXISTS 通过检查给定的校验和是否存在于lua_scripts字典
+SCRIPT LOAD	类似于EVAL，用于加载脚本
+SCRIPT KILL	停止某一个脚本
+4.脚本复制
+EVAL、SCRIPT FLUSH、SCRIPT LOAD、都会被发往从服务器执行
+---------------------------------------------------------------------------------------------------------------------
+(4)排序18
+---------------------------------------------------------------------------------------------------------------------
+(5)二进制位数组16
+---------------------------------------------------------------------------------------------------------------------
+(6)慢查询日志8
+---------------------------------------------------------------------------------------------------------------------
+(7)监视器2
+MONITOR指令，使得一个客户端变成一个监视器，实时接收并打印出服务器当前处理的命令请求信息
+每当一个客户端向服务器发送一条命令请求时，服务器除了处理还会，发送消息给监视器
+监视器的客户端client.flags |= REDIS_MONITOR
+redisSever.monitor是一个链表，保存了成为监视器的各个客户端
