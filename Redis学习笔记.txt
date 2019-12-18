@@ -754,13 +754,30 @@ SCRIPT KILL	停止某一个脚本
 4.脚本复制
 EVAL、SCRIPT FLUSH、SCRIPT LOAD、都会被发往从服务器执行
 ---------------------------------------------------------------------------------------------------------------------
-(4)排序18
+(4)排序
+Redis的SORT命令可以对列表键、集合键、有序集合键的值进行排序
+①SORT key [ALPHA]		//[ALPHA表示是否按字母排序]
+②SORT key [ASC|DESC]		//升序排列（默认）或者降序排列
+③SORT key [BY pattern]
+比如MSET apple-price 8 banana-price 5.5 cherry-price 7，SADD fruits "apple" "banana" "cherry" 
+SORT fruits BY *-price，之后bananaπ第一个
+④SORT key [LIMIT offset count]	// 排序之后跳过offset数量开始，返回count数量
+⑤SORT key [GET pattern]
+SADD students "peter" "jack" "tom"
+SET peter-name "Peter White", SET jack-name "Jack Snow", SET tom-name "Tom Smith"
+SET peter-birth	1995-6-7, SET tom-birth 1995-8-16, SET jack-birth 1995-5-24
+SORT students ALPHA GET *-name GET *-birth，之后返回各个人的全名和出生日期
+⑥SORT key [STORE key2]			// 将键排序，然后保存到新的键中
+【综合】
+SORT <key> ALPHA DESC BY <by-pattern> LIMIT <offset> <count> GET <get-pattern> STORE <store_key>
 ---------------------------------------------------------------------------------------------------------------------
 (5)二进制位数组16
+
 ---------------------------------------------------------------------------------------------------------------------
 (6)慢查询日志8
+
 ---------------------------------------------------------------------------------------------------------------------
-(7)监视器2
+(7)监视器
 MONITOR指令，使得一个客户端变成一个监视器，实时接收并打印出服务器当前处理的命令请求信息
 每当一个客户端向服务器发送一条命令请求时，服务器除了处理还会，发送消息给监视器
 监视器的客户端client.flags |= REDIS_MONITOR
