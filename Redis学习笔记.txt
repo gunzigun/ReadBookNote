@@ -640,7 +640,79 @@ CLUSTER REPLICATE <node_id>
 -------------------------------------------------------------------------------------------------------------------
 第四部分、独立功能的实现
 (1)发布与订阅
+PUBLISH "news.it" "hello"			// 往频道发送消息
+SUBSCRIBE "news.it"					// 订阅某个频道
+UNSUBSCRIBE "news.it"				// 取消订阅某个频道
+PSUBSCRIBE "news.[ie]t" 		 	// 订阅满足某模式的多个频道
+PUNSUBSCRIBE "news.[ie]t"			// 取消订阅满足某模式的多个频道
+1.频道的订阅与退订
+struct redisSever{
+	// ...
+	dict *pubsub_channels			// 订阅信息，字典键是频道，值是一个链表，记录了所有订阅这个频道的客户端
+									// 字典中保存了很多条频道的订阅消息
+	// ...
+}; 
+2.模式的订阅与退订
+struct redisSever{
+	// ...
+	list *pubsub_patterns			// 链表中的每个节点都包含着一个pubsubPattern结构
+									// 链表中保存了很多条模式的订阅消息
+	// ...
+}; 
+typedef struct pubsubPattern
+{
+	redisClient *client;			// 订阅模式的客户端
+	robj *pattern;					// 被订阅的模式，如"news.*"
+};
+3.发送消息
+将消息发送给频道的订阅者，如果有一个模式或多个模式与频道相匹配，那么消息也将发送给pattern模式的订阅者
+4.查看订阅情况
+PUBSUB CHANNELS [pattern]
+不带pattern参数，那么命令返回服务器当前被订阅的所有频道
+带pattern参数，那么命令返回服务器当前被订阅的频道中，那些与模式想匹配的频道
+PUBSUB NUMSUB [channel-1 channel-2 ... channel-n] 	// 返回各个频道的被订阅数量
+PUBSUB NUMPAT 										// 返回服务器当前被订阅模式的数量
+--------------------------------------------------------------------------------------------------------------------
 (2)事务
+1.使用MULTI指令，客户端进入事务状态，client.flags |= REDIS_MULTI，表示后续指令都不断加入队列
+使用EXEC指令，执行加入队列的一系列指令，并返回结果
+typedef struct redisClient{
+	// ...
+	multiState mstate;		// 事务状态，MULTI/EXEC
+	// ...
+} redisClient;
+typedef struct multiState{
+	multiCmd *commands;		// 事务队列，FIFO顺序
+	int count;				// 已入对命令计数
+} multiState;
+typedef struct multiCmd{
+	robj **argv;				// 参数
+	int argc;					// 参数数量
+	struct redisCommand	*cmd;	// 命令指针		
+} multiCmd;
+2.WATCH命令（乐观锁，optimistic locking）
+在执行EXEC命令之前，监视任意数量的数据库键，并在EXEC执行时，检查被监视的键是否至少有一个已经被修改过了
+如果是的话，服务器将拒绝执行事务，返回失败
+A客户端：WATCH "name";MULTI;SET "name" "peter";		  			  ;EXEC（失败）
+B客户端：									    SET "name" "john"
+typedef struct redisDb{
+	// ...
+	dict *watched_keys;		// 正在被WATCH命令监视的键
+	// ...
+} redisDb;
+watched_keys字典的键是，被监视的键，值是，一个链表，表示监视该键的客户端
+每当有键被修改，那么遍历watched_keys字典，找到监视该键的客户端，client.flags |= REDIS_DIRTY_CAS，告知客户端，该键已修改
+3.事务的ACID性质
+①原子性Atomicity ②一致性Consistency
+MULTI之后，命令入队（参数错误）失败，那么EXEC是失败报错的，必须保证所有指令都正确，不然就是错误的
+但是如果是某指令执行错误，那么不影响其它指令的执行
+③隔离性Isolation
+数据库中有多个事务并发的执行，各个事务之间不会相互影响
+并且，在并发状态下执行的事务和串行执行的事务产生的结果完全相同（因为单线程，通过队列控制）
+④耐久性Durability
+RDB模式下时，隔一段时间，满足条件才会BGSAVE一次，不具备耐久性
+AOF模式下，appendfsync always时，真正的具有耐久性；appendfsync everysec时，每秒才真正存盘，不具有耐久性
+
 (3)Lua脚本
 (4)排序
 (5)二进制位数组
