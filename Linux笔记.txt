@@ -208,3 +208,12 @@ netstat -nr		检查路由
 netstat -a		查看本机连接信息
 host www.baidu.com	查看网址的IP地址
 netstat -s -p udp	查看数据报接收情况
+
+14.Windows自带的powershell进行ssh远程登录
+安装Chocolatey：
+Set-ExecutionPolicy AllSigned		//以管理员权限打开PowerShell运行以下命令,一行行的运行
+Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))		
+安装SSH软件
+choco install openssh
+之后便可在windows上，使用ssh进行远程超控了
+
