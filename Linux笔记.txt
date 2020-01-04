@@ -217,3 +217,5 @@ Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.We
 choco install openssh
 之后便可在windows上，使用ssh进行远程超控了
 
+15.
+DNS服务器主配置文件：  /etc/named.conf
