@@ -227,6 +227,7 @@ void func()
 	cout << ps->size() << endl;			//输出：5
 	// 离开前不需delete，auto_ptr会自动释放内存
 }
+string.find() 没找到时返回-1，即string.npos
 
 21.
 template的参数推导机制，可以实现typeof()的函数功能
