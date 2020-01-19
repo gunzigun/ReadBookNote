@@ -166,3 +166,14 @@ else
 	command2
 endif
 
+15.
+脚本名称叫test.sh 入参三个: 1 2 3
+运行test.sh 1 2 3后
+$*为"1 2 3"（一起被引号包住）
+$@为"1" "2" "3"（分别被包住）
+$#为3（参数数量）
+$1为第一个参数，${10}为第十个参数
+
+16.
+${file:-my.file.txt} ：file为空时，返回my.file.txt
+${file:+my.file.txt} ：file不空时，返回my.file.txt
