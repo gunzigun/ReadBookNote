@@ -183,6 +183,7 @@ vtbl_Base2_Derived;			// Base2* 使用
 vtbl_Derived_Base;
 vtbl_Derived;
 这很好理解：因为Base是虚的，只有一份，自然需要有自己的vtbl，也就是vtbl_Derived_Base;
+189页。197页。201页。
 
 22.
 编译器将“被视为不变的表达式”提到循环之外，因此只计算一次
@@ -434,3 +435,18 @@ public:
 Point *ptr = new Point3d[10];
 delete [] ptr;   		// virtual ~Point3d(); virtual ~Point(); 重复调用10次
 
+《高频遗忘》
+4、5:编译器生成默认构造函数和拷贝构造函数的情况
+9:类的sizeof
+10:origin.x = 0.0;和pt->x = 0.0;的区别
+11:虚表指针vptr的位置
+13:被继承的虚基类，不要有数据成员
+18、19、20、21:不同继承关系下的虚函数布局
+24、25:内联函数的规则
+28:不要把virtual destructor 声明为pure
+29:全局的global对象，其初始化操作时机
+33:vptr的初始化时机
+37:定义类型转换函数
+39:static对象何时释放
+40:new和delete多做了什么，相较于malloc和free
+41:new类型数组
