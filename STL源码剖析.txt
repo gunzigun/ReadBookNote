@@ -650,3 +650,30 @@ STL容器只支持“实值语意”（value semantic），不支持“引用语
 所以 vector<Shape&> V;    无法编译通过
 
 
+《高频遗忘》
+6.重载operator new
+7.new(p) T1(T2);	//placement new，p空间重新指向T1(T2)创建的对象  
+10.type_traits.h萃取器
+12-17.stl_alloc.h关于内存分配
+24-28.stl_iterator.h关于迭代器的配置
+30.各个容器之间的关系
+31.vector的使用陷阱，对vector操作引起重新分配，之前的迭代器就失效了
+32-38.序列式容器的要点
+stl_vector.h（152页）、
+stl_list.h（165页）、stl_slist.h（226页）、
+stl_deque.h（188页）、
+stl_heap.h（push_heap-207页、pop_heap-209页）、
+stl_stack.h（基于deque）、stl_queue.h（基于deque、priority_queue基于heap，只弹出最大值）
+40.slist不提供push_back()，只提供push_front()，因此slist的元素次序会和元素插入进来的次序相反
+42.AVL树调整：外侧单旋（238页）、内侧双旋（240页）
+43.红黑树规则
+41.关联式容器的要点
+stl_tree.h（实现了rb-tree）、
+stl_set.h、stl_pair.h、stl_map.h、stl_multiset.h、stl_multimap.h（全都是基于rb-tree实现的）、
+stl_hashtable.h（实现了hashtable，286页，开链法）、stl_hash_fun.h、
+stl_hash_set.h、stl_hash_map.h
+48-50.remove和find_first_of陷阱
+51.求公因子的辗转相除法
+53.真伪随机数
+STL案例：第4章（序列式容器案例）、第5章（关联式容器案例）、第7章（算法案例）
+
