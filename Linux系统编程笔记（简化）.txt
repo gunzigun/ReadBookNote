@@ -1,0 +1,259 @@
+5.进程间通信的方式
+8.shell中的文件描述符，以及重定向
+10.【☆linux中使用键盘产生信号☆】
+一个会话有一个控制终端，其中与终端连接的会话首进程称为控制进程
+一个会话的进程组可分为：一个“前台进程组”，其余为“后台进程组”
+中断键（Delete或Ctrl+C），会将中断信号SIGINT，发送至前台进程组的所有进程
+退出键（Ctrl+\），会将退出信号SIGQUIT，发送至前台进程组的所有进程
+挂起键（Ctrl+Z），会将挂起信号SIGTSTP，发送至前台进程组的所有进程
+状态键（Ctrl+T），会将状态信号SIGINFO，发送至前台进程组的所有进程
+11.【☆系统时间☆】
+日历时间（time_t）：自1970.1.1 00:00:00的时间
+进程时间（clock_t）：
+（1）墙上时钟时间：进程运行的时间总量
+（2）用户CPU时间：执行用户指令所用的时间
+（3）系统CPU时间：为该进程执行内核程序所经历的时间
+12.【☆配置获取函数☆】
+long sysconf(int name);
+long pathconf(const char *pathname, int name);
+long fpathconf(int fd, int name);
+13.【☆文件I/O函数☆】
+int open(const char *path, int oflag, ... /* mode_t mode */);
+int openat(int fd, const chat *path, int oflag, ... /* mode_t mode */);
+int creat(const char *path, mode_t mode);
+int close(int fd);	一个进程终止时，内核自动关闭它所有的打开文件。很多程序都利用了这一功能，而不显式地用close关闭打开文件。
+off_t lseek(int fd, off_t offset, int whence);
+ssize_t read(int fd, void *buf, size_t nbytes);
+ssize_t write(int fd, const void *buf, size_t nbytes);
+ssize_t pread(int fd, void *buf, size_t nbytes, off_t offset);
+ssize_t pwrite(int fd, const void *buf, size_t nbytes, off_t offset);
+int dup(int fd);				fcntl(fd,F_DUPFD,0);
+int dup2(int fd, int fd2);		close(fd2); fcntl(fd,F_DUPFD,fd2); 
+void sync(void);	linux系统的守护进程update，周期性（一般是30秒）调用这个函数，来冲洗内核的块缓冲区
+int fsync(int fd);		只对指定的一个文件生效，用于数据库这样的应用程序，需要确保修改过的块立刻写到磁盘上
+int fdatasync(int fd);		类似于fsync，但是只影响文件的数据部分，fsync，还会更新文件属性
+int fcntl(int fd, int cmd, ... /* int arg */);
+14.【☆文件和目录☆】
+stat结构体中的st_mode成员的set-user-ID，set-group-ID，指明是否设置用户ID，是否设置组ID
+S_ISREG()普通文件、S_ISDIR()目录文件、S_ISCHR()字符特殊文件、S_ISBLK()块特殊文件、S_ISFIFO()管道或FIFO、
+S_ISLNK()符号链接、S_ISSOCK()套接字
+int stat(const char *restrict pathname, struct stat *restrict buf);
+int fstat(int fd, struct stat *buf);
+int fstatat(int fd, const char *restrict pathname, struct stat *restrict buf, int flag);
+int lstat(const char *restrict pathname, struct stat *restrict buf);
+这大体相同，不过当文件名是一个“符号链接”时，返回的是符号链接有关的信息
+mode_t umask(mode_t cmask);		//创建文件时，系统给予的默认权限
+int chmod(const char *pathname, mode_t mode);
+int fchmod(int fd, mode_t mode);
+int fchmodat(int fd, const char *pathname, mode_t mode, int flag);
+int access(const char *pathname, int mode);		// mode = R_OK|W_OK|X_OK
+int faccessat(int fd, const char *pathname, int mode, int flag);
+这两个函数按照实际用户的ID和实际组ID进行访问权限设置
+当flag为AT_EACCESS时，访问检查调用进程的有效用户ID和有效组ID，而不是实际用户ID和实际组ID
+int chown(const char *pathname, uid_t owner, gid_t group);
+int fchown(int fd, uid_t owner, gid_t group);
+int fchownat(int fd, const char *pathname, uid_t owner, gid_t group, int flag);
+int lchown(const char *pathname, uid_t owner, gid_t group);
+如果是“符号链接”，lchown和fchownat（设置了AT_SYMLINK_NOFOLLOW）更改的是链接本身的所有者，而不是对应文件的所有者
+【将文件长度截断为length】
+int truncate(const char *pathname, off_t length);
+int ftruncate(int fd, off_t length);
+【添加链接（硬链接），去除链接】
+int link(const char *existingpath, const chat *newpath); // 不允许构造指向目录的硬链接
+int linkat(int efd, const char *existingpath, int nfd, const char *newpath, int flag);
+int unlink(const char *pathname);
+int unlinkat(int fd, const char *pathname, int flag);
+【创建和读取链接（软链接）】
+int symlink(const char *actualpath, const char *sympath);
+int symlinkat(const char *actualpath, int fd, const char *sympath);
+ssize_t readlink(const char *restric pathname, char *restric buf, size_t bufsize);
+【删除，重命名】
+int remove(const char *pathname);
+int rename(const char *oldname, const char *newname);
+int renameat(int oldfd, const char *oldname, int newfd, const char *newname);
+【文件的时间】：访问时间（st_atim）、修改时间（st_mtim）、状态更改时间（st_ctim）
+int futimens(int fd, const struct timespec times[2]);  // times[2]包含访问时间、修改时间
+int utimensat(int fd, const char *path, const struct timespec times[2], int flag);
+【目录操作】
+int mkdir(const char *pathname, mode_t mode);
+int mkdirat(int fd, const char *pathname, mode_t mode);
+int rmdir(const char *pathname);
+int chdir(const char *pathname);
+int fchdir(int fd);
+char* getcwd(char *buf, size_t size);
+15.【☆标准I/O函数（默认全缓冲）☆】
+int fwide(FILE *fp, int mode);		流的定向函数（单字节、多字节）
+void setbuf(FILE *restrict fp, char *restrict buf);			全缓冲或行缓冲
+int setvbuf(FILE *restrict fp, char *restrict buf, int mode, size_t size);
+mode = _IOFBF全/_IOLBF行/_IONBF无，size为指定缓冲区大小
+int fflush(FILE *fp);
+FILE *fopen(const char *restrict pathname, const char *restrict type);			//用某文件打开
+FILE *fdopen(int fd, const chat *type)		// 从一个已有描述符打开，一般提供给管道，网络通信通道使用
+// type 为 r、w、a等
+      限制	              r		w	  a    r+    w+    a+
+  文件必须已存在		  √                 √
+放弃文件以前的内容              √                √
+	流可以读              √                 √    √     √
+	流可以写                    √     √     √    √     √
+流只可以在为尾端写                    √                √
+int fclose(FILE *fp);
+int fileno(FILE *fp);		// 获取某个流的文件描述符
+【输入、输出函数（一次一个）】
+int getc(FILE *fp);			宏
+int fgetc(FILE *fp);		函数
+int getchar(void);   等同于getc(stdin);
+int ferror(FILE *fp);
+int feof(FILE *fp);		//每个流在FILE对象中，维护两个标志，出错标志，文件结束标志
+void clearerr(FILE *fp);		//清除上述标志
+int ungetc(int c, FILE *fp);		// 把字符压回流中
+int putc(int c, FILE *fp);
+int fputc(int c, FILE *fp);
+int putchar(int c);
+【输入、输出函数（一次一行）】，效率高，因为用memcopy，而memcopy使用汇编语言编写，非C语言
+char *fgets(char *restrict buf, int n, FILE *restrict fp);
+char *gets(char *buf);
+int fputs(const char *restrict str, FILE *restrict fp);
+int puts(const char *str);
+注意：每行中止处，自己处理换行符
+【输入、输出（二进制, 数组，结构体等）】
+size_t fread(void *restrict ptr, size_t size, size_t nobj, FILE *restrict fp);
+size_t fwrite(const void *restrict ptr, size_t size, size_t nobj, FILE *restrict fp);
+【流定位】
+long ftell(FILE *fp);							// 文件当前位置距文件首的距离
+int fseek(FILE *fp, long offset, int whence);	// 类似lseek
+void rewind(FILE *fp);							// 将一个流设置到文件的起始位置
+【格式化输出】
+int printf(const char *restrict format, ...);
+int fprintf(FILE *restrict fp, const char *restrict format, ...);
+int dprintf(int fd, const char *restrict format, ...);
+int sprintf(char *restrict buf, const char *restrict format, ...);
+int snprintf(char *restrict buf, size_t n, const char *restrict format, ...);
+【格式化输入】
+int scanf(const char *restrict format, ...);
+int fscanf(FILE *restrict fp, const char *restrict fromat, ...);
+int sscanf(const char *restrict buf, const char *restrict format, ...);
+16.【☆系统数据文件和信息☆】
+passwd信息、阴影口令、组信息、主机和操作系统相关信息、主机名（均略）
+【时间函数】
+time_t time(time_t *calptr);			距离1970.1.1 00:00:00的秒数
+time_t now;
+time(&now);	 // 等同于now = time(NULL)
+struct tm *localtime(const time_t *calptr);		获取当前时间
+// 把tm时间进行格式转换
+size_t strftime(char *restrict buf, size_t maxsize, const char *restrict format, const struct tm *restrict tmptr);
+【时钟函数】
+clock_t times(struct tms *buf);		// 返回相对某一系统时刻的时间
+包括tms结构体里面的：用户CPU时间，系统CPU时间，也是相对某一时刻的时间
+要知道两次的相对时间，再相减，才能获得进程执行的各个时间
+struct tms 
+{
+clock_t tms_utime; /* 用户CPU时间 */
+clock_t tms_stime; /* 系统CPU时间 */
+clock_t tms_cutime; /* 已终止子进程的用户CPU时间 */
+clock_t tms_cstime; /* 已终止子进程的系统CPU时间 */
+}
+17.【☆进程环境☆】
+void exit(int status);			// 执行清理关闭操作后，再退出，会冲洗缓冲
+void atexit(void (*func)(void));		登记一个处理函数，调用顺序和登记顺序相反，同一个函数可登记多次
+void *malloc(size_t size);
+void *realloc(void *ptr, size_t newsize);
+void free(void *ptr);
+char *getenv(const char *name);				
+int putenv(char *str);		// str格式“name=value”，将其加入到环境表中，name若存在，则删除原来定义
+int getrlimit(int resource, struct rlimit *rlptr);
+int setrlimit(int resource, const struct rlimit *rlptr);
+// resource有一些列枚举，RLIMIT_AS、RLIMIT_CPU等，rlimit结构，有一个软阈值成员，一个硬阈值成员。
+【跳转函数】
+int setjmp(jmp_buf env);		// 返回值：若直接调用，返回0，若从longjmp返回则为非0
+void longjmp(jum_buf env, int val);
+案例实现：
+static jmp_buf buf; 
+void second(void)	{	printf("second\n");   longjmp(buf,1); // 跳回setjmp的调用处 - 使得setjmp返回值为1   }
+void first(void)	{	second();	printf("first\n");        // second跳转了，后一条输出不会执行了 } 
+int main() 
+{   
+    if ( ! setjmp(buf) )
+        first();                // 进入此行前，setjmp返回0
+    else                    	// 当longjmp跳转回，setjmp返回1，因此进入此行
+        printf("main\n");       // 打印
+    return 0;
+}
+输出 second \n main \n
+18.【☆进程控制☆】
+【获取进程标识】
+ID为0的进程通常是调度进程，常常被称为交换进程（swapper），内核一部分
+ID为1的init进程，用户进程，以超级用户权限运行，用于启动UNIX系统
+pid_t getpid(void);		// 调用进程的进程ID
+pid_t getppid(void);	// 调用进程的父进程ID
+uid_t getuid(void);		// 调用进程的实际用户ID
+uid_t geteuid(void);	// 调用进程的有效用户ID
+gid_t getgid(void);		// 调用进程的实际组ID
+gid_t getegid(void);	// 调用进程的有效组ID
+【设置进程标识】
+int setuid(uid_t uid);
+int setgid(gid_t gid);			// 这两个设置的都是有效ID
+// 进程有超级用户权限，将实际用户ID，有效用户ID、保存的设置用户ID，都变为uid
+// 进程无超级用户权限，uid等于实际用户ID或保存的设置用户ID，则只将有效用户ID设置为uid
+int setreuid(uid_t ruid, uid_t euid);
+int setregid(gid_t rgid, gid_t egid);
+int seteuid(uid_t uid);
+int setegid(gid_t gid);
+【创建进程】
+pid_t fork(void);		// 子进程返回0，父进程返回子进程ID，若出错，返回-1
+子进程获得父进程数据空间，堆，栈的副本。父子进程不共享存储空间，只共享正文段（代码）。
+父子进程的区别：子进程不继承父进程设置的文件锁，子进程的未处理闹钟被清除，子进程的未处理信号集设置成空集
+pid_t vfork(void);
+子进程立刻调用exec或exit，在调用之前，在父进程空间中运行，效率高
+vfork保证子进程先运行，在其exec或exit之后，父进程才可能被调度运行
+【僵死进程】
+僵死进程的产生：
+在每个进程退出的时候，内核释放该进程所有的资源，包括打开的文件，占用的内存等，但是仍然为其保留一定的信息
+(包括进程号，退出状态，运行时间等)，直到父进程通过wait/waitpid来取时才释放。
+此时该进程处于僵死状态，该进程成为僵死进程(Zombie Process)。 这保证了父进程可以获取到子进程结束时的状态信息。
+仅仅在进程列表中保留一个位置，记载该进程的退出状态等信息供其他进程收集，除此之外，僵死进程不再占有任何内存空间。
+它需要它的父进程来为它收尸，如果他的父进程没安装SIGCHLD信号处理函数调用wait或waitpid()等待子进程结束，
+又没有显式忽略该信号，那么它就一直保持僵死状态，如果这时父进程结束了，僵死的子进程成为"孤儿进程"，
+过继给1号进程init，init始终会负责清理僵死进程，它产生的所有僵死进程也跟着消失
+pid_t wait(int *statloc);						// 等待任何子进程终止
+pid_t waitpid(pid_t pid, int *statloc, int options);		// 等待指定子进程终止，pid = -1时，等效于wait
+// options可以控制非阻塞，因为有时候只想获取状态记录一下，不想阻塞
+【exec系列函数】
+这些函数并不创建新进程，前后进程ID不变，不过用磁盘上的新程序，替换了当前进程的正文段，数据段，堆段，栈段
+寻找pathname的文件执行
+int execl(const char *pathname, const char *arg0, ... /* (char *)0 */);
+int execv(const char *pathname, char *const argv[]);
+int execle(const char *pathname, const char *arg0, ... /* (char *)0, char *const envp[] */);
+int execve(const char *pathname, char *const argv[], char *const envp[]);
+在PATH环境变量查找，filename，然后执行
+int execlp(const char *filename, const char *arg0, ... /* (char *)0 */);
+int execvp(const char *filename, char *const argv[]);
+根据文件描述符，执行
+int fexecve(int fd, char *const argv[], char *const envp[]);
+l : 使用参数列表 
+p：使用文件名，并从PATH环境进行寻找可执行文件 
+v：应先构造一个指向各参数的指针数组，然后将该数组的地址作为这些函数的参数。 
+e：多了envp[]数组，使用新的环境变量代替调用进程的环境变量
+【【特例】】int system(const char *cmdstring);		// 其中调用了fork，exec，waitpid
+【进程调度】
+int nice(int incr);		// 进程调度，nice值，nice越小，优先级越高，incr为0时获取，当前的nice值
+int getpriority(int which, id_t who);
+which = PRIO_PROCESS进程、PRIO_PGRP进程组、PRIO_USER用户ID，
+who参数选择一个或多个感兴趣的进程，如果which参数作用于多个进程，取优先级最高，nice最小的
+int setpriority(int which, id_t who, int value);
+19.【☆进程关系☆】
+【进程组ID】
+pid_t getpgrp(void);
+pid_t getpgid(pid_t pid);		getpgid(0);等同于getpgrp();
+每个进程组有一个组长进程，组长进程的进程组ID等于其进程ID，组长进程结束，只要组内还有进程，则进程组就存在
+int setpgid(pid_t pid, pid_t pgid);			// 把某个进程，加入某进程组
+// pid=pgid,则创建了新组，组长为pid，如果pid=0，则使用调用者的进程ID，如果pgid=0，则将pid作为进程组的ID
+【会话】
+会话是一个或多个进程组的集合
+pid_t setsid(void);				// 若成功，返回进程组ID，否则，返回-1
+调用进程不为组长：
+①该进程成为新会话的会话首进程，此进程为会话中唯一进程
+②该进程成为新进程组的组长进程，组ID即进程ID
+③该进程没有控制终端
+调用进程为组长：返回出错，解决办法，调用前fork一把，那就肯定不是组长了
+pid_t getsid(pid_t pid);
+获取进程所在会话首进程的进程组ID
