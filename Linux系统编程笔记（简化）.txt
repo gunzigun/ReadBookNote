@@ -599,6 +599,16 @@ const char* inet_ntop(int domain, const void* addr, char *str, size_t size);  //
 返回值：若成功则为指向结构的指针，若出错则为NULL
 注意：domain参数既可以是AF_INET（ipv4）也可以是AF_INET6（ipv6）
 【域名和IP地址互转】
+struct addrinfo {
+    int ai_flags;   /* AI_PASSIVE, AI_CANONNAME, AI_NUMERICHOST */
+    int ai_family;  /* PF_xxx */
+    int ai_socktype;    /* SOCK_xxx */
+    int ai_protocol;    /* 0 or IPPROTO_xxx for IPv4 and IPv6 */
+    socklen_t ai_addrlen;   /* length of ai_addr */
+    char    *ai_canonname;  /* canonical name for hostname */
+    struct  sockaddr *ai_addr;  /* binary address */
+    struct  addrinfo *ai_next;  /* next structure in linked list */
+};
 int getaddrinfo(const char *restrict host, const char *restrict service, 
 				const struct addrinfo *restrict hint, struct addrinfo **restrict res);
 int getnameinfo(const struct sockaddr *restrict addr, socklen_t alen,
