@@ -437,7 +437,6 @@ delete [] ptr;   		// virtual ~Point3d(); virtual ~Point(); 重复调用10次
 
 《高频遗忘》
 4、5:编译器生成默认构造函数和拷贝构造函数的情况
-9:类的sizeof
 10:origin.x = 0.0;和pt->x = 0.0;的区别
 11:虚表指针vptr的位置
 13:被继承的虚基类，不要有数据成员
