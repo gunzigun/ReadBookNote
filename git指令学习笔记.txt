@@ -29,7 +29,7 @@ git remote add origin https://github.com/gunzigun/gitlearn.git
 git pull --rebase origin[之前添加的远程主机] master
 
 -- 将本地文件上传到库上
-git   origin[之前添加的远程主机] master
+git push origin[之前添加的远程主机] master
 
 -- git pull 的常用选项解释
 ①git pull = git fetch + git merge
